@@ -1,26 +1,28 @@
 // swift-tools-version: 6.3
 // The swift-tools-version declares the minimum version of Swift required to build this package.
 
+// swift-tools-version: 6.3
 import PackageDescription
 
 let package = Package(
     name: "rapid-mlx-swift",
+    platforms: [
+        .macOS(.v15),
+        .iOS(.v16)
+    ],
     products: [
-        // Products define the executables and libraries a package produces, making them visible to other packages.
         .library(
-            name: "rapid-mlx-swift",
-            targets: ["rapid-mlx-swift"]
+            name: "RapidMLX",
+            targets: ["RapidMLX"]
         ),
     ],
     targets: [
-        // Targets are the basic building blocks of a package, defining a module or a test suite.
-        // Targets can depend on other targets in this package and products from dependencies.
         .target(
-            name: "rapid-mlx-swift"
+            name: "RapidMLX"
         ),
         .testTarget(
-            name: "rapid-mlx-swiftTests",
-            dependencies: ["rapid-mlx-swift"]
+            name: "RapidMLXTests",
+            dependencies: ["RapidMLX"]
         ),
     ],
     swiftLanguageModes: [.v6]
