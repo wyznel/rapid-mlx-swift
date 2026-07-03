@@ -5,7 +5,7 @@
 import PackageDescription
 
 let package = Package(
-    name: "rapid-mlx-swift",
+    name: "RapidMLX",
     platforms: [
         .macOS(.v15),
         .iOS(.v16)
