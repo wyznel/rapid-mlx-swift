@@ -13,7 +13,7 @@ Add the package to your `Package.swift` dependencies:
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/wyznel/rapid-mlx-swift.git", branch: "main")
+    .package(url: "https://github.com/wyznel/rapid-mlx-swift.git", from: "0.2.0")
 ]
 ```
 
