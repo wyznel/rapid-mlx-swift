@@ -24,13 +24,16 @@ public struct ChatCompletionResponse: Codable, Sendable, Equatable {
 public struct ChatCompletionRequest: Codable, Sendable, Equatable {
     public let model: String
     public let messages: [ChatMessage]
+    public let stream: Bool?
 
     public init(
         model: String = "default",
-        messages: [ChatMessage]
+        messages: [ChatMessage],
+        stream: Bool? = nil
     ) {
         self.model = model
         self.messages = messages
+        self.stream = stream
     }
 }
 
@@ -94,5 +97,56 @@ public struct ListModelResponse: Codable, Sendable, Equatable {
     enum CodingKeys: String, CodingKey {
         case object
         case models = "data"
+    }
+}
+
+// MARK: - Streaming
+
+public struct ChatCompletionChunkDelta: Codable, Sendable, Equatable {
+    public let role: ChatMessage.Role?
+    public let content: String?
+
+    public init(role: ChatMessage.Role? = nil, content: String? = nil) {
+        self.role = role
+        self.content = content
+    }
+}
+
+public struct ChatCompletionChunkChoice: Codable, Sendable, Equatable {
+    public let index: Int
+    public let delta: ChatCompletionChunkDelta
+    public let finishReason: String?
+
+    public init(index: Int, delta: ChatCompletionChunkDelta, finishReason: String? = nil) {
+        self.index = index
+        self.delta = delta
+        self.finishReason = finishReason
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case index, delta
+        case finishReason = "finish_reason"
+    }
+}
+
+public struct ChatCompletionChunk: Codable, Sendable, Equatable {
+    public let id: String
+    public let object: String
+    public let created: Int
+    public let model: String
+    public let choices: [ChatCompletionChunkChoice]
+
+    public init(
+        id: String,
+        object: String,
+        created: Int,
+        model: String,
+        choices: [ChatCompletionChunkChoice]
+    ) {
+        self.id = id
+        self.object = object
+        self.created = created
+        self.model = model
+        self.choices = choices
     }
 }

@@ -12,4 +12,5 @@ public enum RapidMLXError: Error, Sendable, Equatable {
     case invalidResponse
     case httpError(statusCode: Int, body: String?)
     case emptyChoices
+    case streamingError(String)
 }

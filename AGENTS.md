@@ -33,14 +33,16 @@ Prefer extending the existing client and models over adding parallel abstraction
 
 ## Current scope
 
-The initial supported flow should remain simple:
+The supported flows are:
 
 1. Build a `ChatCompletionRequest`.
 2. Send it to `/chat/completions` under the configured base URL.[cite:4][cite:2]
 3. Decode the response.
 4. Read assistant output from `choices[0].message.content` or a convenience property built on that shape.[cite:4]
 
-Keep v0 focused on correctness and API clarity before adding richer features like streaming, tool calling, embeddings, or multimodal support, even though Rapid-MLX supports broader OpenAI-compatible capabilities.[cite:2][cite:24]
+Streaming chat is also supported via `chatStream`, which returns an `AsyncThrowingStream<ChatCompletionChunk, Error>` over SSE chunks from the same endpoint with `stream: true`.
+
+Keep the package focused on correctness and API clarity before adding richer features like tool calling, embeddings, or multimodal support, even though Rapid-MLX supports broader OpenAI-compatible capabilities.[cite:2][cite:24]
 
 ## How to run locally
 

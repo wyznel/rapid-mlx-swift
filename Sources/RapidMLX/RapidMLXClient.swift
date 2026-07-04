@@ -80,8 +80,121 @@ public struct RapidMLXClient: Sendable {
         return decoded
     }
     
-    // MARK: - Streaming generations
+    // MARK: - Streaming chat
     
+    public func chatStream(
+        _ messages: [ChatMessage],
+        model: String = "default"
+    ) -> AsyncThrowingStream<ChatCompletionChunk, Error> {
+        let requestBody = ChatCompletionRequest(
+            model: model,
+            messages: messages,
+            stream: true
+        )
+        return chatStream(requestBody)
+    }
+    
+    public func chatStream(
+        _ body: ChatCompletionRequest
+    ) -> AsyncThrowingStream<ChatCompletionChunk, Error> {
+        let streamBody = ChatCompletionRequest(
+            model: body.model,
+            messages: body.messages,
+            stream: true
+        )
+        
+        let url = baseURL.appending(path: "chat/completions")
+        let currentEncoder = encoder
+        let currentDecoder = decoder
+        let currentApiKey = apiKey
+        let currentSession = session
+        
+        return AsyncThrowingStream { continuation in
+            let task = Task {
+                do {
+                    var request = URLRequest(url: url)
+                    request.httpMethod = "POST"
+                    request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+                    
+                    if let apiKey = currentApiKey, !apiKey.isEmpty {
+                        request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
+                    }
+                    
+                    request.httpBody = try currentEncoder.encode(streamBody)
+                    
+                    let (bytes, response) = try await currentSession.bytes(for: request)
+                    
+                    guard let httpResponse = response as? HTTPURLResponse else {
+                        throw RapidMLXError.invalidResponse
+                    }
+                    
+                    guard (200...299).contains(httpResponse.statusCode) else {
+                        var errorData = Data()
+                        for try await byte in bytes {
+                            errorData.append(byte)
+                        }
+                        let errorBody = String(data: errorData, encoding: .utf8)
+                        throw RapidMLXError.httpError(
+                            statusCode: httpResponse.statusCode,
+                            body: errorBody
+                        )
+                    }
+                    
+                    for try await line in bytes.lines {
+                        if let event = try Self.parseSSELine(line, decoder: currentDecoder) {
+                            switch event {
+                            case .chunk(let chunk):
+                                continuation.yield(chunk)
+                            case .done:
+                                break
+                            }
+                        }
+                    }
+                    
+                    continuation.finish()
+                } catch {
+                    continuation.finish(throwing: error)
+                }
+            }
+            
+            continuation.onTermination = { @Sendable _ in
+                task.cancel()
+            }
+        }
+    }
+    
+    // MARK: - SSE parsing
+    
+    private enum SSEEvent {
+        case chunk(ChatCompletionChunk)
+        case done
+    }
+    
+    private static func parseSSELine(
+        _ line: String,
+        decoder: JSONDecoder
+    ) throws -> SSEEvent? {
+        guard !line.isEmpty, !line.hasPrefix(":") else {
+            return nil
+        }
+        
+        guard line.hasPrefix("data: ") else {
+            return nil
+        }
+        
+        let payload = String(line.dropFirst(6))
+        
+        if payload == "[DONE]" {
+            return .done
+        }
+        
+        guard let data = payload.data(using: .utf8) else {
+            throw RapidMLXError.streamingError("Invalid UTF-8 in SSE payload")
+        }
+        
+        let chunk = try decoder.decode(ChatCompletionChunk.self, from: data)
+        return .chunk(chunk)
+    }
     
     // MARK: - List currently cached models
     

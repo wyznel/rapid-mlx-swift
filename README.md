@@ -74,6 +74,17 @@ let request = ChatCompletionRequest(
 let response = try await client.chat(request)
 ```
 
+### Streaming chat
+
+```swift
+for try await chunk in client.chatStream([.user("Tell me a story")]) {
+    if let token = chunk.firstContentToken {
+        print(token, terminator: "")
+    }
+}
+print() // newline after stream ends
+```
+
 ## API Reference
 
 ### `RapidMLXClient`
@@ -92,6 +103,8 @@ let response = try await client.chat(request)
 |-----------|-------------|
 | `chat(_:model:) async throws -> ChatCompletionResponse` | Send messages with an optional model name |
 | `chat(_:) async throws -> ChatCompletionResponse` | Send a fully constructed `ChatCompletionRequest` |
+| `chatStream(_:model:) -> AsyncThrowingStream<ChatCompletionChunk, Error>` | Stream tokens with an optional model name |
+| `chatStream(_:) -> AsyncThrowingStream<ChatCompletionChunk, Error>` | Stream a fully constructed request |
 
 ### Models
 
@@ -101,6 +114,9 @@ let response = try await client.chat(request)
 | `ChatCompletionRequest` | Request body containing `model` and `messages` |
 | `ChatCompletionResponse` | Server response containing an array of `choices` |
 | `ChatChoice` | A single completion choice with `index`, `message`, and `finishReason` |
+| `ChatCompletionChunk` | A single SSE chunk during streaming |
+| `ChatCompletionChunkChoice` | A streaming choice with `index`, `delta`, and `finishReason` |
+| `ChatCompletionChunkDelta` | Incremental token data with optional `role` and `content` |
 
 ### Convenience helpers
 
@@ -113,6 +129,10 @@ ChatMessage.assistant("Hi there")
 // Response access
 response.firstMessage  // ChatMessage?
 response.firstText     // String?
+
+// Streaming chunk access
+chunk.firstContentToken  // String?
+chunk.isFinished         // Bool
 ```
 
 ### Error handling
@@ -144,8 +164,9 @@ Sources/rapid-mlx-swift/
   Extenstions/
     ChatMessage+Extensions.swift                    -- Role enum & factory methods
     ChatCompletionResponse+Extensions.swift         -- firstMessage / firstText
+    ChatCompletionChunk+Extensions.swift            -- firstContentToken / isFinished
 Tests/rapid-mlx-swiftTests/
-  RapidMLXTests.swift                               -- Integration tests
+  RapidMLXTests.swift                               -- Unit & integration tests
 ```
 
 ## License
