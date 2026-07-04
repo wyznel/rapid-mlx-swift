@@ -1,6 +1,8 @@
+> [!NOTE]
+> This project is not directly affiliated with [RapidMLX](https://github.com/raullenchai/Rapid-MLX), it is developed and maintained independently.
 # RapidMLX Swift
 
-A lightweight Swift client for the [MLX](https://github.com/ml-explore/mlx) local inference server, providing an OpenAI-compatible chat completions API.
+A lightweight Swift client for interacting with the [RapidMLX](https://github.com/raullenchai/Rapid-MLX) api.
 
 ## Requirements
 
@@ -15,15 +17,6 @@ Add the package to your `Package.swift` dependencies:
 dependencies: [
     .package(url: "https://github.com/wyznel/rapid-mlx-swift.git", from: "0.2.0")
 ]
-```
-
-Then add `RapidMLX` to your target's dependencies:
-
-```swift
-.target(
-    name: "YourApp",
-    dependencies: ["RapidMLX"]
-)
 ```
 
 ## Usage
