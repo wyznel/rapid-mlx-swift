@@ -53,4 +53,15 @@ struct ModelsTests {
         let text = try #require(response.firstText)
         #expect(!text.isEmpty)
     }
+    
+    @Test("List models works")
+    func listModelsWorks() async throws {
+        let client = RapidMLXClient()
+        let modelResponse: ModelResponse = try await client.listModels()
+        
+        let Models: [Model] = modelResponse.models
+        
+        #expect(Models.count > 0)
+        
+    }
 }

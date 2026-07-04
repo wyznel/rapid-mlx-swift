@@ -56,3 +56,4 @@ public struct ChatChoice: Codable, Sendable, Equatable {
         case finishReason = "finish_reason"
     }
 }
+

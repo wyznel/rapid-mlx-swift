@@ -30,7 +30,6 @@ public struct RapidMLXClient: Sendable {
         self.decoder = decoder
     }
     
-    
     public func chat(
         _ messages: [ChatMessage],
         model: String = "default"
@@ -76,6 +75,35 @@ public struct RapidMLXClient: Sendable {
             throw RapidMLXError.emptyChoices
         }
         
+        
+        return decoded
+    }
+    
+    // MARK: - List currently cached models
+    
+    public func listModels() async throws -> ModelResponse {
+        let url = baseURL.appending(path: "models")
+        var request = URLRequest(url: url)
+        
+        request.httpMethod = "GET"
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        
+        if let apiKey, !apiKey.isEmpty {
+            request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
+        }
+        
+        let (data, response) = try await session.data(for: request)
+        
+        guard let httpResponse = response as? HTTPURLResponse else {
+            throw RapidMLXError.invalidResponse
+        }
+        
+        guard (200...299).contains(httpResponse.statusCode) else{
+            let responseBody = String(data: data, encoding: .utf8)
+            throw RapidMLXError.httpError(statusCode: httpResponse.statusCode, body: responseBody)
+        }
+        
+        let decoded = try decoder.decode(ModelResponse.self, from: data)
         
         return decoded
     }
