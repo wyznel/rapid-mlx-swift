@@ -29,7 +29,8 @@ public struct RapidMLXClient: Sendable {
         self.encoder = encoder
         self.decoder = decoder
     }
-    
+
+//  MARK: - General Chat (No streaming)
     public func chat(
         _ messages: [ChatMessage],
         model: String = "default"
@@ -79,9 +80,12 @@ public struct RapidMLXClient: Sendable {
         return decoded
     }
     
+    // MARK: - Streaming generations
+    
+    
     // MARK: - List currently cached models
     
-    public func listModels() async throws -> ModelResponse {
+    public func listModels(showOnlyAliases: Bool = false) async throws -> ListModelResponse {
         let url = baseURL.appending(path: "models")
         var request = URLRequest(url: url)
         
@@ -103,7 +107,15 @@ public struct RapidMLXClient: Sendable {
             throw RapidMLXError.httpError(statusCode: httpResponse.statusCode, body: responseBody)
         }
         
-        let decoded = try decoder.decode(ModelResponse.self, from: data)
+        let decoded = try decoder.decode(ListModelResponse.self, from: data)
+        
+        
+        if showOnlyAliases {
+            return ListModelResponse(
+                object: decoded.object,
+                models: decoded.models.filter { !$0.id.contains("/") }
+            )
+        }
         
         return decoded
     }

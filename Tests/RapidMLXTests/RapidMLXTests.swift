@@ -57,7 +57,7 @@ struct ModelsTests {
     @Test("List models works")
     func listModelsWorks() async throws {
         let client = RapidMLXClient()
-        let modelResponse: ModelResponse = try await client.listModels()
+        let modelResponse: ListModelResponse = try await client.listModels(showOnlyAliases: true)
         
         let Models: [Model] = modelResponse.models
         
