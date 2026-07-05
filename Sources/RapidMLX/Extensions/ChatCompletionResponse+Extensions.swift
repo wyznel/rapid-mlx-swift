@@ -13,4 +13,14 @@ public extension ChatCompletionResponse {
     var firstText: String? {
         firstMessage?.content
     }
+
+    /// The tool calls from the first choice, if present.
+    var firstToolCalls: [ToolCall]? {
+        firstMessage?.toolCalls
+    }
+
+    /// Whether the first choice contains tool calls.
+    var hasToolCalls: Bool {
+        !(firstToolCalls?.isEmpty ?? true)
+    }
 }

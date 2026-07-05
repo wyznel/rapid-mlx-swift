@@ -100,7 +100,10 @@ public struct RapidMLXClient: Sendable {
         let streamBody = ChatCompletionRequest(
             model: body.model,
             messages: body.messages,
-            stream: true
+            stream: true,
+            tools: body.tools,
+            toolChoice: body.toolChoice,
+            parallelToolCalls: body.parallelToolCalls
         )
         
         let url = baseURL.appending(path: "chat/completions")

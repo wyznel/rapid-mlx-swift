@@ -12,6 +12,7 @@ public extension ChatMessage {
         case system
         case user
         case assistant
+        case tool
     }
     
     static func system(_ content: String) -> ChatMessage {
@@ -25,5 +26,13 @@ public extension ChatMessage {
     static func assistant(_ content: String) -> ChatMessage {
         ChatMessage(role: .assistant, content: content)
     }
-    
+
+    /// Creates a tool-result message to return function output to the model.
+    ///
+    /// - Parameters:
+    ///   - callId: The `id` from the ``ToolCall`` this result corresponds to.
+    ///   - content: The function's result, typically JSON-encoded.
+    static func toolResult(callId: String, content: String) -> ChatMessage {
+        ChatMessage(role: .tool, content: content, toolCallId: callId)
+    }
 }

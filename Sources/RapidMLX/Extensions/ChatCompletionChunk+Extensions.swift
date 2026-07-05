@@ -15,4 +15,14 @@ public extension ChatCompletionChunk {
     var isFinished: Bool {
         choices.first?.finishReason != nil
     }
+
+    /// The tool call deltas from the first choice, if present.
+    var firstToolCallDeltas: [ToolCallChunkDelta]? {
+        choices.first?.delta.toolCalls
+    }
+
+    /// Whether this chunk's finish reason indicates a tool call.
+    var isToolCallFinish: Bool {
+        choices.first?.finishReason == "tool_calls"
+    }
 }

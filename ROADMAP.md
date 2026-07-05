@@ -69,32 +69,32 @@ Add streaming chat support alongside ergonomic improvements.
 - LICENSE file (MIT).
 - ROADMAP and AGENTS documentation.
 
----
-
-## Upcoming versions
-
 ### v0.3.0
 
 #### Goal
 
 Add tool-calling support.
 
-#### Why next
+#### Delivered
 
-Rapid-MLX emphasizes tool calling heavily and advertises strong support for it, including many parser formats and recovery behavior, so this is one of the highest-value next capabilities after chat and streaming.
+- `Tool`, `FunctionDefinition` request-side types for defining callable functions.
+- `ToolCall`, `FunctionCall` response-side types for model-emitted tool calls.
+- `ToolCallChunkDelta`, `FunctionCallDelta` for streaming tool call deltas.
+- `ToolChoice` enum (`.auto`, `.none`, `.required`, `.function(name:)`) with polymorphic Codable.
+- `JSONValue` recursive enum for type-safe arbitrary JSON in tool parameter schemas.
+- `ChatMessage.content` changed from `String` to `String?` (breaking) to support tool call responses.
+- `ChatMessage.toolCalls` and `ChatMessage.toolCallId` fields.
+- `ChatMessage.toolResult(callId:content:)` factory method.
+- `tools`, `toolChoice`, `parallelToolCalls` fields on `ChatCompletionRequest`.
+- `toolCalls` field on `ChatCompletionChunkDelta` for streaming.
+- Convenience extensions: `firstToolCalls`, `hasToolCalls`, `firstToolCallDeltas`, `isToolCallFinish`.
+- Fixed `chatStream` to preserve tool fields when rebuilding the request with `stream: true`.
+- 22 unit tests for tool calling types, encoding, and decoding.
+- 3 integration tests: non-streaming tool call, full round-trip, streaming tool call.
 
-#### Scope
+---
 
-- Model `tool_calls` in chat responses.
-- Add request-side tool definitions.
-- Add a lightweight Swift representation for tool schemas and calls.
-- Add tests for basic tool-call decoding and round-tripping.
-- Avoid building a full agent framework; stay at the protocol/client layer.
-
-#### Exit criteria
-
-- A caller can send tool definitions and inspect returned tool calls.
-- The package remains a client library, not an orchestration framework.
+## Upcoming versions
 
 ### v0.4.0
 
@@ -205,7 +205,7 @@ Declare a stable core API.
 | `0.1.5` | Model listing | Released |
 | `0.1.5.1` | Model listing bug fix | Released |
 | `0.2.0` | Streaming, ergonomics, convenience APIs | Released |
-| `0.3.0` | Tool calling | Planned |
+| `0.3.0` | Tool calling | Released |
 | `0.4.0` | Embeddings | Planned |
 | `0.5.0` | Responses API | Planned |
 | `0.6.0` | Multimodal foundations | Planned |

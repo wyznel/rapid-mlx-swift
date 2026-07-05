@@ -3,11 +3,26 @@ import Foundation
 // MARK: - Chat Message
 public struct ChatMessage: Codable, Sendable, Equatable {
     public let role: Role
-    public let content: String
+    public let content: String?
+    public let toolCalls: [ToolCall]?
+    public let toolCallId: String?
 
-    public init(role: Role, content: String) {
+    public init(
+        role: Role,
+        content: String? = nil,
+        toolCalls: [ToolCall]? = nil,
+        toolCallId: String? = nil
+    ) {
         self.role = role
         self.content = content
+        self.toolCalls = toolCalls
+        self.toolCallId = toolCallId
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case role, content
+        case toolCalls = "tool_calls"
+        case toolCallId = "tool_call_id"
     }
 }
 
@@ -25,15 +40,30 @@ public struct ChatCompletionRequest: Codable, Sendable, Equatable {
     public let model: String
     public let messages: [ChatMessage]
     public let stream: Bool?
+    public let tools: [Tool]?
+    public let toolChoice: ToolChoice?
+    public let parallelToolCalls: Bool?
 
     public init(
         model: String = "default",
         messages: [ChatMessage],
-        stream: Bool? = nil
+        stream: Bool? = nil,
+        tools: [Tool]? = nil,
+        toolChoice: ToolChoice? = nil,
+        parallelToolCalls: Bool? = nil
     ) {
         self.model = model
         self.messages = messages
         self.stream = stream
+        self.tools = tools
+        self.toolChoice = toolChoice
+        self.parallelToolCalls = parallelToolCalls
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case model, messages, stream, tools
+        case toolChoice = "tool_choice"
+        case parallelToolCalls = "parallel_tool_calls"
     }
 }
 
@@ -105,10 +135,21 @@ public struct ListModelResponse: Codable, Sendable, Equatable {
 public struct ChatCompletionChunkDelta: Codable, Sendable, Equatable {
     public let role: ChatMessage.Role?
     public let content: String?
+    public let toolCalls: [ToolCallChunkDelta]?
 
-    public init(role: ChatMessage.Role? = nil, content: String? = nil) {
+    public init(
+        role: ChatMessage.Role? = nil,
+        content: String? = nil,
+        toolCalls: [ToolCallChunkDelta]? = nil
+    ) {
         self.role = role
         self.content = content
+        self.toolCalls = toolCalls
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case role, content
+        case toolCalls = "tool_calls"
     }
 }
 
