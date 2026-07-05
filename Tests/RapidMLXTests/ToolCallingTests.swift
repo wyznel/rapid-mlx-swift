@@ -331,3 +331,107 @@ struct AssistantToolCallMessageTests {
         #expect(msg.toolCallId == nil)
     }
 }
+
+// MARK: - Chunk Accumulator Tests
+
+struct ChunkAccumulatorTests {
+    @Test("Accumulates text chunks correctly")
+    func accumulatesTextChunks() {
+        var accumulator = ChunkAccumulator()
+        
+        let chunk1 = ChatCompletionChunk(id: "1", object: "chunk", created: 0, model: "test", choices: [
+            ChatCompletionChunkChoice(index: 0, delta: ChatCompletionChunkDelta(content: "Hello "))
+        ])
+        let chunk2 = ChatCompletionChunk(id: "2", object: "chunk", created: 0, model: "test", choices: [
+            ChatCompletionChunkChoice(index: 0, delta: ChatCompletionChunkDelta(content: "world!"))
+        ])
+        
+        accumulator.append(chunk1)
+        accumulator.append(chunk2)
+        
+        let msg = accumulator.message
+        #expect(msg.role == .assistant)
+        #expect(msg.content == "Hello world!")
+        #expect(msg.toolCalls == nil)
+    }
+    
+    @Test("Accumulates single tool call correctly")
+    func accumulatesSingleToolCall() throws {
+        var accumulator = ChunkAccumulator()
+        
+        // Chunk 1: Tool call ID and name
+        accumulator.append(ChatCompletionChunk(id: "1", object: "chunk", created: 0, model: "test", choices: [
+            ChatCompletionChunkChoice(index: 0, delta: ChatCompletionChunkDelta(
+                toolCalls: [
+                    ToolCallChunkDelta(index: 0, id: "call_abc", type: "function", function: FunctionCallDelta(name: "get_weather", arguments: ""))
+                ]
+            ))
+        ]))
+        
+        // Chunk 2: First part of arguments
+        accumulator.append(ChatCompletionChunk(id: "2", object: "chunk", created: 0, model: "test", choices: [
+            ChatCompletionChunkChoice(index: 0, delta: ChatCompletionChunkDelta(
+                toolCalls: [
+                    ToolCallChunkDelta(index: 0, function: FunctionCallDelta(arguments: "{\"loc"))
+                ]
+            ))
+        ]))
+        
+        // Chunk 3: Second part of arguments
+        accumulator.append(ChatCompletionChunk(id: "3", object: "chunk", created: 0, model: "test", choices: [
+            ChatCompletionChunkChoice(index: 0, delta: ChatCompletionChunkDelta(
+                toolCalls: [
+                    ToolCallChunkDelta(index: 0, function: FunctionCallDelta(arguments: "ation\": \"London\"}"))
+                ]
+            ))
+        ]))
+        
+        let msg = accumulator.message
+        #expect(msg.role == .assistant)
+        #expect(msg.content == nil)
+        
+        let tools = try #require(msg.toolCalls)
+        #expect(tools.count == 1)
+        #expect(tools[0].id == "call_abc")
+        #expect(tools[0].function.name == "get_weather")
+        #expect(tools[0].function.arguments == "{\"location\": \"London\"}")
+    }
+    
+    @Test("Accumulates parallel tool calls correctly")
+    func accumulatesParallelToolCalls() throws {
+        var accumulator = ChunkAccumulator()
+        
+        // Chunk 1: Two tool calls start
+        accumulator.append(ChatCompletionChunk(id: "1", object: "chunk", created: 0, model: "test", choices: [
+            ChatCompletionChunkChoice(index: 0, delta: ChatCompletionChunkDelta(
+                toolCalls: [
+                    ToolCallChunkDelta(index: 0, id: "call_0", type: "function", function: FunctionCallDelta(name: "get_weather", arguments: "")),
+                    ToolCallChunkDelta(index: 1, id: "call_1", type: "function", function: FunctionCallDelta(name: "get_time", arguments: ""))
+                ]
+            ))
+        ]))
+        
+        // Chunk 2: Arguments for both
+        accumulator.append(ChatCompletionChunk(id: "2", object: "chunk", created: 0, model: "test", choices: [
+            ChatCompletionChunkChoice(index: 0, delta: ChatCompletionChunkDelta(
+                toolCalls: [
+                    ToolCallChunkDelta(index: 0, function: FunctionCallDelta(arguments: "{\"location\":\"Paris\"}")),
+                    ToolCallChunkDelta(index: 1, function: FunctionCallDelta(arguments: "{\"location\":\"Tokyo\"}"))
+                ]
+            ))
+        ]))
+        
+        let msg = accumulator.message
+        let tools = try #require(msg.toolCalls)
+        
+        #expect(tools.count == 2)
+        #expect(tools[0].id == "call_0")
+        #expect(tools[0].function.name == "get_weather")
+        #expect(tools[0].function.arguments == "{\"location\":\"Paris\"}")
+        
+        #expect(tools[1].id == "call_1")
+        #expect(tools[1].function.name == "get_time")
+        #expect(tools[1].function.arguments == "{\"location\":\"Tokyo\"}")
+    }
+}
+

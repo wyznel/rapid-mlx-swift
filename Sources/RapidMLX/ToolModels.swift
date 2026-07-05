@@ -1,3 +1,10 @@
+//
+//  ToolModels.swift
+//  rapid-mlx-swift
+//
+//  Created by Ben Herbert on 03/07/2026.
+//
+
 import Foundation
 
 // MARK: - Tool Definition (Request Side)

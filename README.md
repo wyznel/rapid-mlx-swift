@@ -15,7 +15,7 @@ Add the package to your `Package.swift` dependencies:
 
 ```swift
 dependencies: [
-    .package(url: "https://github.com/wyznel/rapid-mlx-swift.git", from: "0.3.0")
+    .package(url: "https://github.com/wyznel/rapid-mlx-swift.git", from: "0.2.7")
 ]
 ```
 
@@ -79,6 +79,8 @@ print() // newline after stream ends
 ```
 
 ### Tool calling
+> [!NOTE]
+> Read (TOOL_CALLING_TUTORIAL.md)[https://github.com/wyznel/rapid-mlx-swift/blob/main/TOOL_CALLING_TUTORIAL.md] for more.
 
 ```swift
 // 1. Define a tool
