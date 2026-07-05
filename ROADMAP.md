@@ -196,21 +196,6 @@ Declare a stable core API.
 - Stable endpoint families that have proven useful in real projects.
 - Release-quality docs and examples.
 
-#### Exit criteria
-
-- SemVer expectations are now strict for consumers.
-- Future breaking API changes require a major version bump.
-
-## Post-1.0 candidates
-
-These should be treated as optional or demand-driven rather than mandatory:
-
-- Public tunnel and hosted-endpoint helpers for Rapid-MLX share flows, if the project chooses to expose them.
-- Cloud-routing-aware configuration surfaces, if Rapid-MLX routing behavior becomes important to client authors.
-- Swift macros or higher-level DSLs for tools.
-- Stronger typed wrappers for structured outputs.
-- Sample macOS app or menu bar demo.
-- Performance diagnostics and observability helpers.
 
 ## Milestones table
 
@@ -227,6 +212,3 @@ These should be treated as optional or demand-driven rather than mandatory:
 | `0.7.0` | API stabilization | Planned |
 | `1.0.0` | Stable package | Planned |
 
-## Guiding principle
-
-Every version should keep the package thin, well-tested, and obviously mapped to Rapid-MLX's local OpenAI-compatible server rather than drifting into a full framework or agent runtime.
