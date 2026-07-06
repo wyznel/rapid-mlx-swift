@@ -79,11 +79,13 @@ print() // newline after stream ends
 ```
 
 ### Tool calling
+
 > [!NOTE]
-> Read (TOOL_CALLING_TUTORIAL.md)[https://github.com/wyznel/rapid-mlx-swift/blob/main/TOOL_CALLING_TUTORIAL.md] for more.
+> Read [TOOL_CALLING_TUTORIAL.md](https://github.com/wyznel/rapid-mlx-swift/blob/main/TOOL_CALLING_TUTORIAL.md) for the full guide including mid-level and low-level approaches.
+
+`chatWithTools` handles the entire tool-calling lifecycle. Define your tools, provide a handler closure, and the library manages the request/response loop:
 
 ```swift
-// 1. Define a tool
 let weatherTool = Tool(function: FunctionDefinition(
     name: "get_weather",
     description: "Get the current weather for a location",
@@ -99,38 +101,28 @@ let weatherTool = Tool(function: FunctionDefinition(
     ])
 ))
 
-// 2. Send a request with tools
 let request = ChatCompletionRequest(
     messages: [.user("What is the weather in London?")],
-    tools: [weatherTool],
-    toolChoice: .auto
+    tools: [weatherTool]
 )
-let response = try await client.chat(request)
 
-// 3. Inspect tool calls
-if response.hasToolCalls, let toolCalls = response.firstToolCalls {
-    for call in toolCalls {
-        print(call.function.name)       // "get_weather"
-        print(call.function.arguments)  // "{\"location\": \"London\"}"
-
-        // 4. Execute the function yourself, then send the result back
-        let result = ChatMessage.toolResult(
-            callId: call.id,
-            content: "{\"temperature\": 18, \"condition\": \"partly cloudy\"}"
-        )
-
-        let followUp = ChatCompletionRequest(
-            messages: [
-                .user("What is the weather in London?"),
-                response.firstMessage!,
-                result
-            ],
-            tools: [weatherTool]
-        )
-        let finalResponse = try await client.chat(followUp)
-        print(finalResponse.firstText ?? "")
+// Streaming with automatic tool execution
+for try await event in client.chatWithTools(request) { call in
+    // Execute the tool and return a JSON result string
+    return "{\"temperature\": 18, \"condition\": \"partly cloudy\"}"
+} {
+    switch event {
+    case .content(let token): print(token, terminator: "")
+    case .toolCallsReady:     break
+    case .finished:           print()
     }
 }
+
+// Or non-streaming:
+let response = try await client.chatWithTools(request) { call in
+    return "{\"temperature\": 18, \"condition\": \"partly cloudy\"}"
+}
+print(response.firstText ?? "")
 ```
 
 ## API Reference
@@ -149,10 +141,14 @@ if response.hasToolCalls, let toolCalls = response.firstToolCalls {
 
 | Signature | Description |
 |-----------|-------------|
-| `chat(_:model:) async throws -> ChatCompletionResponse` | Send messages with an optional model name |
-| `chat(_:) async throws -> ChatCompletionResponse` | Send a fully constructed `ChatCompletionRequest` |
-| `chatStream(_:model:) -> AsyncThrowingStream<ChatCompletionChunk, Error>` | Stream tokens with an optional model name |
-| `chatStream(_:) -> AsyncThrowingStream<ChatCompletionChunk, Error>` | Stream a fully constructed request |
+| `chat(_:model:)` | Send messages with an optional model name |
+| `chat(_:)` | Send a fully constructed `ChatCompletionRequest` |
+| `chatStream(_:model:)` | Stream raw `ChatCompletionChunk` tokens |
+| `chatStream(_:)` | Stream a fully constructed request |
+| `chatStreamEvents(_:)` | Stream high-level `ChatStreamEvent` values with automatic delta accumulation |
+| `chatWithTools(_:handler:)` | Streaming tool execution loop with automatic multi-round handling |
+| `chatWithTools(_:handler:) async throws` | Non-streaming tool execution loop returning the final response |
+| `listModels(showOnlyAliases:)` | Query cached models on the server |
 
 ### Models
 
@@ -163,15 +159,14 @@ if response.hasToolCalls, let toolCalls = response.firstToolCalls {
 | `ChatCompletionResponse` | Server response containing an array of `choices` |
 | `ChatChoice` | A single completion choice with `index`, `message`, and `finishReason` |
 | `ChatCompletionChunk` | A single SSE chunk during streaming |
-| `ChatCompletionChunkChoice` | A streaming choice with `index`, `delta`, and `finishReason` |
-| `ChatCompletionChunkDelta` | Incremental token data with optional `role`, `content`, and `toolCalls` |
+| `ChatStreamEvent` | High-level event: `.content`, `.toolCallsReady`, `.finished` |
 | `Tool` | A tool definition wrapping a `FunctionDefinition` |
 | `FunctionDefinition` | Describes a callable function with `name`, `description`, and `parameters` |
 | `ToolCall` | A tool call returned by the model with `id`, `type`, and `function` |
 | `FunctionCall` | The `name` and JSON-encoded `arguments` from a tool call |
-| `ToolCallChunkDelta` | A partial tool call delta during streaming |
 | `ToolChoice` | Controls tool selection: `.auto`, `.none`, `.required`, `.function(name:)` |
 | `JSONValue` | Type-safe recursive enum for arbitrary JSON (used in tool parameter schemas) |
+| `ChunkAccumulator` | Reassembles streaming tool call deltas into complete `ToolCall` objects |
 
 ### Convenience helpers
 
@@ -187,6 +182,9 @@ response.firstMessage     // ChatMessage?
 response.firstText        // String?
 response.firstToolCalls   // [ToolCall]?
 response.hasToolCalls     // Bool
+
+// Tool call argument decoding
+let args: MyArgs = try toolCall.decodedArguments()
 
 // Streaming chunk access
 chunk.firstContentToken     // String?
@@ -210,6 +208,10 @@ do {
         // Server returned a non-2xx status
     case .emptyChoices:
         // Response contained no choices
+    case .streamingError(let message):
+        // SSE parsing failure
+    case .toolCallError(let message):
+        // Tool call argument decoding failure
     }
 }
 ```
@@ -218,9 +220,12 @@ do {
 
 ```
 Sources/RapidMLX/
-  RapidMLXClient.swift                              -- HTTP client
+  RapidMLXClient.swift                              -- HTTP client (chat, stream, events)
+  ChatStreamEvent.swift                             -- High-level streaming event enum
+  ChatWithTools.swift                               -- Tool execution loop (streaming + non-streaming)
+  ChunkAccumulator.swift                            -- Streaming delta reassembly
   Models.swift                                      -- Request/response types
-  ToolModels.swift                                  -- Tool calling types
+  ToolModels.swift                                  -- Tool calling types + decodedArguments
   JSONValue.swift                                   -- Arbitrary JSON enum
   Errors.swift                                      -- RapidMLXError enum
   Extensions/
@@ -231,6 +236,8 @@ Tests/RapidMLXTests/
   RapidMLXTests.swift                               -- Core unit & integration tests
   ToolCallingTests.swift                            -- Tool calling unit tests
   ToolCallIntegrationTests.swift                    -- Tool calling integration tests
+  ChatStreamEventTests.swift                        -- Event enum & decodedArguments tests
+  ChatWithToolsIntegrationTests.swift               -- High-level tool loop integration tests
 ```
 
 ## License

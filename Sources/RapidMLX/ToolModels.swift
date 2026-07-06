@@ -59,6 +59,31 @@ public struct FunctionCall: Codable, Sendable, Equatable {
     }
 }
 
+// MARK: - Tool Call Argument Decoding
+
+extension ToolCall {
+    /// Decodes the JSON arguments string into a typed Swift struct.
+    ///
+    /// ```swift
+    /// struct WeatherArgs: Decodable { let location: String }
+    /// let args: WeatherArgs = try toolCall.decodedArguments()
+    /// ```
+    ///
+    /// - Parameters:
+    ///   - type: The `Decodable` type to decode into. Can be inferred from context.
+    ///   - decoder: An optional `JSONDecoder` instance. Defaults to a plain `JSONDecoder()`.
+    /// - Returns: The decoded value.
+    public func decodedArguments<T: Decodable>(
+        _ type: T.Type = T.self,
+        decoder: JSONDecoder = JSONDecoder()
+    ) throws -> T {
+        guard let data = function.arguments.data(using: .utf8) else {
+            throw RapidMLXError.toolCallError("Invalid UTF-8 in tool call arguments")
+        }
+        return try decoder.decode(type, from: data)
+    }
+}
+
 // MARK: - Tool Call Chunk (Streaming)
 
 /// A partial tool call delta received during streaming.

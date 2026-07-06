@@ -73,7 +73,7 @@ Add streaming chat support alongside ergonomic improvements.
 
 #### Goal
 
-Add tool-calling support.
+Finish adding tool calling support, making it much easier while still allowing access to mid and lower level access.
 
 #### Delivered
 
@@ -86,11 +86,22 @@ Add tool-calling support.
 - `ChatMessage.toolCalls` and `ChatMessage.toolCallId` fields.
 - `ChatMessage.toolResult(callId:content:)` factory method.
 - `tools`, `toolChoice`, `parallelToolCalls` fields on `ChatCompletionRequest`.
-- `toolCalls` field on `ChatCompletionChunkDelta` for streaming.
+- `toolCalls` field on `ChatCompletionChunkDelta` for streaming.    
 - Convenience extensions: `firstToolCalls`, `hasToolCalls`, `firstToolCallDeltas`, `isToolCallFinish`.
 - Fixed `chatStream` to preserve tool fields when rebuilding the request with `stream: true`.
 - 22 unit tests for tool calling types, encoding, and decoding.
 - 3 integration tests: non-streaming tool call, full round-trip, streaming tool call.
+
+###### Simplifying tool calling.
+
+- `ChatStreamEvent` enum (`.content`, `.toolCallsReady`, `.finished`) for consuming streams without manual delta accumulation.
+- `chatStreamEvents` methods on `RapidMLXClient` that wrap raw chunk streams with internal `ChunkAccumulator`.
+- `chatWithTools` streaming method that handles the full tool execution lifecycle (stream, accumulate, execute, follow-up) with `maxRounds` safety limit.
+- `chatWithTools` non-streaming method for simpler use cases.
+- `ToolHandler` typealias for tool execution closures.
+- `ToolCall.decodedArguments()` generic helper for typed argument parsing.
+- `toolCallError` case added to `RapidMLXError`.
+- All new APIs are additive; existing low-level `chatStream` API unchanged.
 
 ---
 
@@ -206,6 +217,7 @@ Declare a stable core API.
 | `0.1.5.1` | Model listing bug fix | Released |
 | `0.2.0` | Streaming, ergonomics, convenience APIs | Released |
 | `0.3.0` | Tool calling | Released |
+| `0.3.1` | Tool calling ergonomics | Released |
 | `0.4.0` | Embeddings | Planned |
 | `0.5.0` | Responses API | Planned |
 | `0.6.0` | Multimodal foundations | Planned |

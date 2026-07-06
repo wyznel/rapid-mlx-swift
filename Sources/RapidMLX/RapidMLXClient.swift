@@ -236,4 +236,77 @@ public struct RapidMLXClient: Sendable {
         return decoded
     }
     
+    // MARK: - Event-based streaming
+    
+    /// Streams chat completions as high-level events, automatically accumulating
+    /// tool call deltas internally.
+    ///
+    /// This wraps ``chatStream(_:)-7e1xp`` with a ``ChunkAccumulator`` so consumers
+    /// do not need to manually reassemble tool call deltas.
+    ///
+    /// ```swift
+    /// for try await event in client.chatStreamEvents(request) {
+    ///     switch event {
+    ///     case .content(let token): print(token, terminator: "")
+    ///     case .toolCallsReady(let calls): // execute tools
+    ///     case .finished(let msg): history.append(msg)
+    ///     }
+    /// }
+    /// ```
+    public func chatStreamEvents(
+        _ body: ChatCompletionRequest
+    ) -> AsyncThrowingStream<ChatStreamEvent, Error> {
+        let rawStream = chatStream(body)
+        
+        return AsyncThrowingStream { continuation in
+            let task = Task {
+                do {
+                    var accumulator = ChunkAccumulator()
+                    
+                    for try await chunk in rawStream {
+                        accumulator.append(chunk)
+                        
+                        if let token = chunk.firstContentToken {
+                            continuation.yield(.content(token))
+                        }
+                        
+                        if chunk.isToolCallFinish {
+                            let message = accumulator.message
+                            if let toolCalls = message.toolCalls, !toolCalls.isEmpty {
+                                continuation.yield(.toolCallsReady(toolCalls))
+                            }
+                        }
+                    }
+                    
+                    continuation.yield(.finished(accumulator.message))
+                    continuation.finish()
+                } catch {
+                    continuation.finish(throwing: error)
+                }
+            }
+            
+            continuation.onTermination = { @Sendable _ in
+                task.cancel()
+            }
+        }
+    }
+    
+    /// Convenience overload that builds a ``ChatCompletionRequest`` for you.
+    public func chatStreamEvents(
+        _ messages: [ChatMessage],
+        model: String = "default",
+        tools: [Tool]? = nil,
+        toolChoice: ToolChoice? = nil,
+        parallelToolCalls: Bool? = nil
+    ) -> AsyncThrowingStream<ChatStreamEvent, Error> {
+        let request = ChatCompletionRequest(
+            model: model,
+            messages: messages,
+            tools: tools,
+            toolChoice: toolChoice,
+            parallelToolCalls: parallelToolCalls
+        )
+        return chatStreamEvents(request)
+    }
+    
 }

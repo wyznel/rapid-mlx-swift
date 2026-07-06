@@ -13,4 +13,5 @@ public enum RapidMLXError: Error, Sendable, Equatable {
     case httpError(statusCode: Int, body: String?)
     case emptyChoices
     case streamingError(String)
+    case toolCallError(String)
 }
