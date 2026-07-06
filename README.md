@@ -215,31 +215,6 @@ do {
     }
 }
 ```
-
-## Project structure
-
-```
-Sources/RapidMLX/
-  RapidMLXClient.swift                              -- HTTP client (chat, stream, events)
-  ChatStreamEvent.swift                             -- High-level streaming event enum
-  ChatWithTools.swift                               -- Tool execution loop (streaming + non-streaming)
-  ChunkAccumulator.swift                            -- Streaming delta reassembly
-  Models.swift                                      -- Request/response types
-  ToolModels.swift                                  -- Tool calling types + decodedArguments
-  JSONValue.swift                                   -- Arbitrary JSON enum
-  Errors.swift                                      -- RapidMLXError enum
-  Extensions/
-    ChatMessage+Extensions.swift                    -- Role enum & factory methods
-    ChatCompletionResponse+Extensions.swift         -- firstMessage / firstText / firstToolCalls
-    ChatCompletionChunk+Extensions.swift            -- firstContentToken / isFinished / isToolCallFinish
-Tests/RapidMLXTests/
-  RapidMLXTests.swift                               -- Core unit & integration tests
-  ToolCallingTests.swift                            -- Tool calling unit tests
-  ToolCallIntegrationTests.swift                    -- Tool calling integration tests
-  ChatStreamEventTests.swift                        -- Event enum & decodedArguments tests
-  ChatWithToolsIntegrationTests.swift               -- High-level tool loop integration tests
-```
-
 ## License
 
 See [LICENSE](LICENSE) for details.
