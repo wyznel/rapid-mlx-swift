@@ -98,7 +98,7 @@ Finish adding tool calling support, making it much easier while still allowing a
 - `chatStreamEvents` methods on `RapidMLXClient` that wrap raw chunk streams with internal `ChunkAccumulator`.
 - `chatWithTools` streaming method that handles the full tool execution lifecycle (stream, accumulate, execute, follow-up) with `maxRounds` safety limit.
 - `chatWithTools` non-streaming method for simpler use cases.
-- `ToolHandler` typealias for tool execution closures.
+- Generic `Tool<Input, Output>` type storing both schema and execution logic.
 - `ToolCall.decodedArguments()` generic helper for typed argument parsing.
 - `toolCallError` case added to `RapidMLXError`.
 - All new APIs are additive; existing low-level `chatStream` API unchanged.

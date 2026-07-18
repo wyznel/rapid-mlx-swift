@@ -10,7 +10,7 @@ import Foundation
 // MARK: - Tool Definition (Request Side)
 
 /// A tool the model may call. Currently only "function" type is supported.
-public struct Tool: Codable, Sendable, Equatable {
+public struct ChatCompletionTool: Codable, Sendable, Equatable {
     public let type: String
     public let function: FunctionDefinition
 

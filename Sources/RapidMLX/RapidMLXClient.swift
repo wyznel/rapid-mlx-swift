@@ -295,7 +295,7 @@ public struct RapidMLXClient: Sendable {
     public func chatStreamEvents(
         _ messages: [ChatMessage],
         model: String = "default",
-        tools: [Tool]? = nil,
+        tools: [ChatCompletionTool]? = nil,
         toolChoice: ToolChoice? = nil,
         parallelToolCalls: Bool? = nil
     ) -> AsyncThrowingStream<ChatStreamEvent, Error> {

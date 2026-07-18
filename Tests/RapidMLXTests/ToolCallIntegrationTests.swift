@@ -7,7 +7,7 @@ import Foundation
 struct ToolCallIntegrationTests {
 
     /// A simple weather tool definition reused across tests.
-    private static let weatherTool = Tool(function: FunctionDefinition(
+    private static let weatherTool = ChatCompletionTool(function: FunctionDefinition(
         name: "get_weather",
         description: "Get the current weather for a location",
         parameters: .object([

@@ -246,7 +246,7 @@ struct ToolResultMessageTests {
 struct RequestWithToolsTests {
     @Test("ChatCompletionRequest with tools encodes correctly")
     func requestWithToolsEncoding() throws {
-        let weatherTool = Tool(function: FunctionDefinition(
+        let weatherTool = ChatCompletionTool(function: FunctionDefinition(
             name: "get_weather",
             description: "Get the weather for a location",
             parameters: .object([
@@ -295,7 +295,7 @@ struct RequestWithToolsTests {
     func parallelToolCallsEncoding() throws {
         let request = ChatCompletionRequest(
             messages: [.user("Hi")],
-            tools: [Tool(function: FunctionDefinition(name: "f"))],
+            tools: [ChatCompletionTool(function: FunctionDefinition(name: "f"))],
             parallelToolCalls: false
         )
         let data = try JSONEncoder().encode(request)

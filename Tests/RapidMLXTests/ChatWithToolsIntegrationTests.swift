@@ -6,25 +6,31 @@ import Foundation
 
 struct ChatWithToolsIntegrationTests {
 
+    struct WeatherInput: Codable {
+        let location: String
+    }
+    struct WeatherOutput: Codable {
+        let temperature: Int
+        let condition: String
+        let unit: String
+    }
+
     /// A simple weather tool definition reused across tests.
-    private static let weatherTool = Tool(function: FunctionDefinition(
+    private static let weatherTool = Tool<WeatherInput, WeatherOutput>(
         name: "get_weather",
         description: "Get the current weather for a location",
-        parameters: .object([
+        parameters: [
             "type": "object",
-            "properties": .object([
-                "location": .object([
+            "properties": [
+                "location": [
                     "type": "string",
                     "description": "The city name"
-                ])
-            ]),
-            "required": .array(["location"])
-        ])
-    ))
-
-    /// A mock tool handler that returns a fixed weather JSON string.
-    private static let mockWeatherHandler: ToolHandler = { call in
-        return "{\"temperature\": 18, \"condition\": \"partly cloudy\", \"unit\": \"celsius\"}"
+                ]
+            ],
+            "required": ["location"]
+        ]
+    ) { input async throws -> WeatherOutput in
+        return WeatherOutput(temperature: 18, condition: "partly cloudy", unit: "celsius")
     }
 
     // MARK: - chatStreamEvents Tests
@@ -32,9 +38,10 @@ struct ChatWithToolsIntegrationTests {
     @Test("chatStreamEvents with tools returns .toolCallsReady and .finished events")
     func streamEventsWithToolCalls() async throws {
         let client = RapidMLXClient()
+        let requestTools = try [Self.weatherTool].toChatCompletionTools()
         let request = ChatCompletionRequest(
             messages: [.user("What is the weather in London?")],
-            tools: [Self.weatherTool],
+            tools: requestTools,
             toolChoice: .required
         )
 
@@ -102,20 +109,14 @@ struct ChatWithToolsIntegrationTests {
     @Test("chatWithTools streaming completes a full tool round-trip")
     func streamingToolRoundTrip() async throws {
         let client = RapidMLXClient()
-        let request = ChatCompletionRequest(
-            messages: [.user("What is the weather in London?")],
-            tools: [Self.weatherTool],
-            toolChoice: .auto
-        )
-
         var contentTokens: [String] = []
         var receivedToolCallsReady = false
         var receivedFinished = false
         var finishedMessage: ChatMessage?
 
-        let stream: AsyncThrowingStream<ChatStreamEvent, Error> = client.chatWithTools(
-            request,
-            handler: Self.mockWeatherHandler
+        let stream: AsyncThrowingStream<ChatStreamEvent, Error> = try client.chatWithTools(
+            messages: [.user("What is the weather in London?")],
+            tools: [Self.weatherTool]
         )
 
         for try await event in stream {
@@ -147,15 +148,9 @@ struct ChatWithToolsIntegrationTests {
     @Test("chatWithTools non-streaming completes a full tool round-trip")
     func nonStreamingToolRoundTrip() async throws {
         let client = RapidMLXClient()
-        let request = ChatCompletionRequest(
-            messages: [.user("What is the weather in London?")],
-            tools: [Self.weatherTool],
-            toolChoice: .auto
-        )
-
         let response: ChatCompletionResponse = try await client.chatWithTools(
-            request,
-            handler: Self.mockWeatherHandler
+            messages: [.user("What is the weather in London?")],
+            tools: [Self.weatherTool]
         )
 
         // The final response should be a text reply, not another tool call
@@ -172,11 +167,10 @@ struct ChatWithToolsIntegrationTests {
 
         var receivedFinished = false
 
-        let stream = client.chatWithTools(
+        let stream: AsyncThrowingStream<ChatStreamEvent, Swift.Error> = try client.chatWithTools(
             messages: [.user("What is the weather in London?")],
             tools: [Self.weatherTool],
-            toolChoice: .auto,
-            handler: Self.mockWeatherHandler
+            toolChoice: .auto
         )
 
         for try await event in stream {

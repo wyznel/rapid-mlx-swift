@@ -7,9 +7,6 @@
 
 import Foundation
 
-/// A closure that executes a tool call and returns the result as a JSON string.
-public typealias ToolHandler = @Sendable (ToolCall) async throws -> String
-
 extension RapidMLXClient {
 
     // MARK: - Streaming tool execution loop
@@ -18,39 +15,23 @@ extension RapidMLXClient {
     ///
     /// This method handles the full tool-calling lifecycle:
     /// 1. Sends the initial request and streams content tokens
-    /// 2. When the model requests tool calls, executes them via `handler`
+    /// 2. When the model requests tool calls, executes them via the tool's implementation
     /// 3. Sends tool results back and streams the follow-up response
     /// 4. Repeats if the model requests more tool calls (up to `maxRounds`)
     ///
     /// Content tokens from every round are yielded as ``ChatStreamEvent/content(_:)`` events.
     /// The final ``ChatStreamEvent/finished(_:)`` event contains the last assistant message.
     ///
-    /// ```swift
-    /// for try await event in client.chatWithTools(
-    ///     messages: [.user("What's the weather in London?")],
-    ///     tools: [weatherTool],
-    ///     handler: { call in
-    ///         try await fetchWeather(call)
-    ///     }
-    /// ) {
-    ///     switch event {
-    ///     case .content(let token): print(token, terminator: "")
-    ///     case .toolCallsReady: print("[calling tools...]")
-    ///     case .finished(let msg): history.append(msg)
-    ///     }
-    /// }
-    /// ```
-    ///
     /// - Parameters:
     ///   - body: The initial chat completion request (should include tools).
+    ///   - tools: The tools to execute.
     ///   - maxRounds: Maximum number of tool-calling round-trips. Default is 10.
-    ///   - handler: Closure that executes a ``ToolCall`` and returns a JSON result string.
     /// - Returns: A stream of ``ChatStreamEvent`` values.
-    public func chatWithTools(
+    private func chatWithTools(
         _ body: ChatCompletionRequest,
-        maxRounds: Int = 10,
-        handler: @escaping ToolHandler
-    ) -> AsyncThrowingStream<ChatStreamEvent, Error> {
+        tools: [any ToolProtocol],
+        maxRounds: Int = 10
+    ) -> AsyncThrowingStream<ChatStreamEvent, Swift.Error> {
         let capturedSelf = self
 
         return AsyncThrowingStream { continuation in
@@ -99,7 +80,10 @@ extension RapidMLXClient {
                         // Execute each tool call and append results.
                         for toolCall in toolCalls {
                             do {
-                                let result = try await handler(toolCall)
+                                guard let executableTool = tools.compactMap({ $0 as? ExecutableTool }).first(where: { $0.name == toolCall.function.name }) else {
+                                    throw RapidMLXError.toolCallError("Unknown tool called by model: \(toolCall.function.name)")
+                                }
+                                let result = try await executableTool.execute(arguments: toolCall.function.arguments)
                                 messages.append(
                                     .toolResult(callId: toolCall.id, content: result)
                                 )
@@ -127,52 +111,43 @@ extension RapidMLXClient {
         }
     }
 
-    /// Convenience overload that builds a ``ChatCompletionRequest`` for you.
+    /// Convenience overload that builds a ``ChatCompletionRequest`` for you and automatically executes tools.
     public func chatWithTools(
         messages: [ChatMessage],
         model: String = "default",
-        tools: [Tool],
+        tools: [any ToolProtocol],
         toolChoice: ToolChoice? = .auto,
         parallelToolCalls: Bool? = nil,
-        maxRounds: Int = 10,
-        handler: @escaping ToolHandler
-    ) -> AsyncThrowingStream<ChatStreamEvent, Error> {
+        maxRounds: Int = 10
+    ) throws -> AsyncThrowingStream<ChatStreamEvent, Swift.Error> {
+        let requestTools = try tools.toChatCompletionTools()
+        
         let request = ChatCompletionRequest(
             model: model,
             messages: messages,
-            tools: tools,
+            tools: requestTools,
             toolChoice: toolChoice,
             parallelToolCalls: parallelToolCalls
         )
-        return chatWithTools(request, maxRounds: maxRounds, handler: handler)
+        return chatWithTools(request, tools: tools, maxRounds: maxRounds)
     }
 
     // MARK: - Non-streaming tool execution loop
 
     /// Executes a chat completion with automatic tool calling, returning the final response.
     ///
-    /// Uses the non-streaming ``chat(_:)-2n239`` method internally. Loops up to `maxRounds`
+    /// Uses the non-streaming ``chat(_:)`` method internally. Loops up to `maxRounds`
     /// times if the model keeps requesting tool calls.
-    ///
-    /// ```swift
-    /// let response = try await client.chatWithTools(
-    ///     request,
-    ///     handler: { call in
-    ///         try await executeTool(call)
-    ///     }
-    /// )
-    /// print(response.firstText ?? "")
-    /// ```
     ///
     /// - Parameters:
     ///   - body: The initial chat completion request (should include tools).
+    ///   - tools: The tools to execute.
     ///   - maxRounds: Maximum number of tool-calling round-trips. Default is 10.
-    ///   - handler: Closure that executes a ``ToolCall`` and returns a JSON result string.
     /// - Returns: The final ``ChatCompletionResponse`` after all tool calls are resolved.
-    public func chatWithTools(
+    private func chatWithTools(
         _ body: ChatCompletionRequest,
-        maxRounds: Int = 10,
-        handler: @escaping ToolHandler
+        tools: [any ToolProtocol],
+        maxRounds: Int = 10
     ) async throws -> ChatCompletionResponse {
         var messages = body.messages
 
@@ -199,7 +174,10 @@ extension RapidMLXClient {
             // Execute each tool call and append results.
             for toolCall in toolCalls {
                 do {
-                    let result = try await handler(toolCall)
+                    guard let executableTool = tools.compactMap({ $0 as? ExecutableTool }).first(where: { $0.name == toolCall.function.name }) else {
+                        throw RapidMLXError.toolCallError("Unknown tool called by model: \(toolCall.function.name)")
+                    }
+                    let result = try await executableTool.execute(arguments: toolCall.function.arguments)
                     messages.append(
                         .toolResult(callId: toolCall.id, content: result)
                     )
@@ -218,5 +196,27 @@ extension RapidMLXClient {
             messages: messages
         )
         return try await chat(finalRequest)
+    }
+
+    /// Convenience overload that builds a ``ChatCompletionRequest`` for you and automatically executes tools.
+    public func chatWithTools(
+        messages: [ChatMessage],
+        model: String = "default",
+        tools: [any ToolProtocol],
+        toolChoice: ToolChoice? = .auto,
+        parallelToolCalls: Bool? = nil,
+        maxRounds: Int = 10
+    ) async throws -> ChatCompletionResponse {
+        let requestTools = try tools.toChatCompletionTools()
+        
+        let request = ChatCompletionRequest(
+            model: model,
+            messages: messages,
+            tools: requestTools,
+            toolChoice: toolChoice,
+            parallelToolCalls: parallelToolCalls
+        )
+        
+        return try await chatWithTools(request, tools: tools, maxRounds: maxRounds)
     }
 }

@@ -40,7 +40,7 @@ public struct ChatCompletionRequest: Codable, Sendable, Equatable {
     public let model: String
     public let messages: [ChatMessage]
     public let stream: Bool?
-    public let tools: [Tool]?
+    public let tools: [ChatCompletionTool]?
     public let toolChoice: ToolChoice?
     public let parallelToolCalls: Bool?
 
@@ -48,7 +48,7 @@ public struct ChatCompletionRequest: Codable, Sendable, Equatable {
         model: String = "default",
         messages: [ChatMessage],
         stream: Bool? = nil,
-        tools: [Tool]? = nil,
+        tools: [ChatCompletionTool]? = nil,
         toolChoice: ToolChoice? = nil,
         parallelToolCalls: Bool? = nil
     ) {

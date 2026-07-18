@@ -83,45 +83,51 @@ print() // newline after stream ends
 > [!NOTE]
 > Read [TOOL_CALLING_TUTORIAL.md](https://github.com/wyznel/rapid-mlx-swift/blob/main/TOOL_CALLING_TUTORIAL.md) for the full guide including mid-level and low-level approaches.
 
-`chatWithTools` handles the entire tool-calling lifecycle. Define your tools, provide a handler closure, and the library manages the request/response loop:
+`chatWithTools` handles the entire tool-calling lifecycle. Define your tools with their execution closures, and the library manages the request/response loop automatically:
 
 ```swift
-let weatherTool = Tool(function: FunctionDefinition(
+struct WeatherArgs: Codable {
+    let location: String
+}
+struct WeatherResult: Codable {
+    let temperature: Int
+    let condition: String
+}
+
+let weatherTool = Tool<WeatherArgs, WeatherResult>(
     name: "get_weather",
     description: "Get the current weather for a location",
-    parameters: .object([
+    parameters: [
         "type": "object",
-        "properties": .object([
-            "location": .object([
+        "properties": [
+            "location": [
                 "type": "string",
                 "description": "The city name"
-            ])
-        ]),
-        "required": .array(["location"])
-    ])
-))
+            ]
+        ],
+        "required": ["location"]
+    ]
+) { input in
+    // Implement tool logic here
+    return WeatherResult(temperature: 18, condition: "partly cloudy")
+}
 
 let request = ChatCompletionRequest(
     messages: [.user("What is the weather in London?")],
-    tools: [weatherTool]
+    tools: try [weatherTool].toChatCompletionTools()
 )
 
 // Streaming with automatic tool execution
-for try await event in client.chatWithTools(request) { call in
-    // Execute the tool and return a JSON result string
-    return "{\"temperature\": 18, \"condition\": \"partly cloudy\"}"
-} {
+for try await event in try client.chatWithTools(messages: [.user("What is the weather in London?")], tools: [weatherTool]) {
     switch event {
     case .content(let token): print(token, terminator: "")
-    case .toolCallsReady:     break
-    case .finished:           print()
+    case .toolCallsReady: break
+    case .finished: break
     }
 }
 
 // Or non-streaming:
-let response = try await client.chatWithTools(request) { call in
-    return "{\"temperature\": 18, \"condition\": \"partly cloudy\"}"
-}
+let response = try await client.chatWithTools(messages: [.user("What is the weather in London?")], tools: [weatherTool])
 print(response.firstText ?? "")
 ```
 
@@ -146,8 +152,8 @@ print(response.firstText ?? "")
 | `chatStream(_:model:)` | Stream raw `ChatCompletionChunk` tokens |
 | `chatStream(_:)` | Stream a fully constructed request |
 | `chatStreamEvents(_:)` | Stream high-level `ChatStreamEvent` values with automatic delta accumulation |
-| `chatWithTools(_:handler:)` | Streaming tool execution loop with automatic multi-round handling |
-| `chatWithTools(_:handler:) async throws` | Non-streaming tool execution loop returning the final response |
+| `chatWithTools(_:)` | Streaming tool execution loop with automatic multi-round handling |
+| `chatWithTools(_:) async throws` | Non-streaming tool execution loop returning the final response |
 | `listModels(showOnlyAliases:)` | Query cached models on the server |
 
 ### Models
@@ -160,7 +166,8 @@ print(response.firstText ?? "")
 | `ChatChoice` | A single completion choice with `index`, `message`, and `finishReason` |
 | `ChatCompletionChunk` | A single SSE chunk during streaming |
 | `ChatStreamEvent` | High-level event: `.content`, `.toolCallsReady`, `.finished` |
-| `Tool` | A tool definition wrapping a `FunctionDefinition` |
+| `Tool` | A generic tool definition combining schema and an execution closure |
+| `ChatCompletionTool` | The low-level JSON payload representation of a tool |
 | `FunctionDefinition` | Describes a callable function with `name`, `description`, and `parameters` |
 | `ToolCall` | A tool call returned by the model with `id`, `type`, and `function` |
 | `FunctionCall` | The `name` and JSON-encoded `arguments` from a tool call |

@@ -3,24 +3,6 @@
 > [!NOTE]
 > This tutorial uses `catfact.ninja` as a free, no-auth endpoint to demonstrate tool calling.
 
-## How it Works
-
-The LLM does not execute code. It tells you which function to call, you execute it, and you send the result back so the LLM can generate a final response.
-
-```mermaid
-sequenceDiagram
-    participant App as Your Swift Code
-    participant LLM as Rapid-MLX
-    participant API as catfact.ninja
-
-    App->>LLM: "Tell me a cat fact" + [get_cat_fact]
-    LLM->>App: call get_cat_fact()
-    App->>API: GET /fact
-    API->>App: {"fact": "...", "length": 30}
-    App->>LLM: Tool Result: {"fact": "..."}
-    LLM->>App: "Here's a fun cat fact..."
-```
-
 ## Quick Start: `chatWithTools`
 
 The simplest way to use tool calling. Define your tool, provide a handler closure, and the library manages the entire request/response loop -- including multi-round tool calls.
@@ -31,27 +13,34 @@ The simplest way to use tool calling. Define your tool, provide a handler closur
 import Foundation
 import RapidMLX
 
+struct CatFactResult: Codable {
+    let fact: String
+}
+struct EmptyArgs: Codable {}
+
 func catFactDemo() async throws {
     let client = RapidMLXClient()
 
-    let catFactTool = Tool(function: FunctionDefinition(
+    let catFactTool = Tool<EmptyArgs, CatFactResult>(
         name: "get_cat_fact",
         description: "Retrieves a random cat fact",
-        parameters: .object(["type": "object", "properties": .object([:]), "required": .array([])])
-    ))
-
-    let request = ChatCompletionRequest(
-        messages: [.user("Tell me 3 cat facts")],
-        tools: [catFactTool]
-    )
-
-    for try await event in client.chatWithTools(request, maxRounds: 10) { call in
-        // This closure is called for each tool call the model makes.
+        parameters: [
+            "type": "object",
+            "properties": [:],
+            "required": []
+        ]
+    ) { _ in
         let (data, _) = try await URLSession.shared.data(
             from: URL(string: "https://catfact.ninja/fact")!
         )
-        return String(data: data, encoding: .utf8) ?? "{}"
-    } {
+        return try JSONDecoder().decode(CatFactResult.self, from: data)
+    }
+
+    for try await event in try client.chatWithTools(
+        messages: [.user("Tell me 3 cat facts")],
+        tools: [catFactTool],
+        maxRounds: 10
+    ) {
         switch event {
         case .content(let token):
             print(token, terminator: "")
@@ -69,25 +58,23 @@ func catFactDemo() async throws {
 For cases where you don't need to stream tokens:
 
 ```swift
-let response = try await client.chatWithTools(request) { call in
-    let (data, _) = try await URLSession.shared.data(
-        from: URL(string: "https://catfact.ninja/fact")!
-    )
-    return String(data: data, encoding: .utf8) ?? "{}"
-}
+let response = try await client.chatWithTools(
+    messages: [.user("Tell me 3 cat facts")],
+    tools: [catFactTool]
+)
 print(response.firstText ?? "")
 ```
 
 ## Typed Argument Decoding
 
-Use `decodedArguments()` on a `ToolCall` to decode the JSON arguments into a Swift struct instead of parsing the raw string:
+When using manual tool calling (mid-level or low-level), you can use `decodedArguments()` on a `ToolCall` to decode the JSON arguments into a Swift struct instead of parsing the raw string:
 
 ```swift
 struct WeatherArgs: Decodable {
     let location: String
 }
 
-// Inside your handler:
+// Inside your manual tool execution logic:
 let args: WeatherArgs = try call.decodedArguments()
 print(args.location)  // "London"
 ```
@@ -99,7 +86,7 @@ If you need more control than `chatWithTools` but still want automatic delta acc
 ```swift
 func streamEventDemo() async throws {
     let client = RapidMLXClient()
-    let catFactTool = Tool(function: FunctionDefinition(
+    let catFactTool = ChatCompletionTool(function: FunctionDefinition(
         name: "get_cat_fact",
         description: "Retrieves a cat fact",
         parameters: .object(["type": "object", "properties": .object([:]), "required": .array([])])
@@ -138,7 +125,7 @@ import RapidMLX
 func manualCatFactDemo() async throws {
     let client = RapidMLXClient()
 
-    let catFactTool = Tool(function: FunctionDefinition(
+    let catFactTool = ChatCompletionTool(function: FunctionDefinition(
         name: "get_cat_fact",
         description: "Retrieves a random cat fact",
         parameters: .object(["type": "object", "properties": .object([:]), "required": .array([])])
@@ -184,7 +171,7 @@ When streaming, tool calls arrive as incremental deltas. Use `ChunkAccumulator` 
 ```swift
 func lowLevelStreamingDemo() async throws {
     let client = RapidMLXClient()
-    let catFactTool = Tool(function: FunctionDefinition(
+    let catFactTool = ChatCompletionTool(function: FunctionDefinition(
         name: "get_cat_fact",
         description: "Retrieves a cat fact",
         parameters: .object(["type": "object", "properties": .object([:]), "required": .array([])])
