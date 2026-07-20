@@ -28,6 +28,9 @@ import RapidMLX
 
 let client = RapidMLXClient()
 
+try? await client.serve(model: "qwen3.5-4b-4bitar")
+try? await client.waitForModelReady()
+
 let response = try await client.chat([
     .system("You are a helpful assistant."),
     .user("What is MLX?")

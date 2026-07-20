@@ -433,4 +433,20 @@ extension RapidMLXClient {
         return ready
     }
     
+    /// Polls the health endpoint until the model is fully loaded and ready to serve requests.
+    public func waitForModelReady(pollInterval: TimeInterval = 1.0, maxRetries: Int = 30) async throws {
+        for _ in 0..<maxRetries {
+            do {
+                let status = try await isModelReady()
+                if status.ready {
+                    return
+                }
+            } catch {
+                // Ignore errors and keep polling (e.g., connection refused while server starts)
+            }
+            try await Task.sleep(nanoseconds: UInt64(pollInterval * 1_000_000_000))
+        }
+        throw RapidMLXError.timeout
+    }
+    
 }
