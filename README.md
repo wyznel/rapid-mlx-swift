@@ -40,9 +40,25 @@ print(response.firstText ?? "No response")
 
 ```swift
 let client = RapidMLXClient(
-    baseURL: URL(string: "http://192.168.1.42:8000/v1")!,
+    baseURL: URL(string: "http://192.168.1.42:8000")!,
     apiKey: "my-api-key"
 )
+```
+
+### Server management
+
+You can manage the local Rapid-MLX server process directly from Swift:
+
+```swift
+// Start a local server process
+try await client.serve(model: "mlx-community/Qwen2.5-Coder-7B-Instruct-4bit")
+
+// Check if model is ready
+let status = try await client.isModelReady()
+print(status.ready, status.model)
+
+// Stop the server process
+try await client.stopServe()
 ```
 
 ### Using a specific model
@@ -137,7 +153,7 @@ print(response.firstText ?? "")
 
 | Property | Type | Default |
 |----------|------|---------|
-| `baseURL` | `URL` | `http://localhost:8000/v1` |
+| `baseURL` | `URL` | `http://localhost:8000` |
 | `apiKey` | `String?` | `"not-needed"` |
 | `session` | `URLSession` | `.shared` |
 | `encoder` | `JSONEncoder` | `JSONEncoder()` |
@@ -155,6 +171,10 @@ print(response.firstText ?? "")
 | `chatWithTools(_:)` | Streaming tool execution loop with automatic multi-round handling |
 | `chatWithTools(_:) async throws` | Non-streaming tool execution loop returning the final response |
 | `listModels(showOnlyAliases:)` | Query cached models on the server |
+| `serve(model:)` | Start a local Rapid-MLX server process serving a specific model |
+| `stopServe()` | Stop the local Rapid-MLX server process |
+| `getHealth()` | Get the health status of the server |
+| `isModelReady()` | Check if a model is ready and get its name |
 
 ### Models
 
@@ -219,6 +239,16 @@ do {
         // SSE parsing failure
     case .toolCallError(let message):
         // Tool call argument decoding failure
+    case .modelAlreadyServed:
+        // A model is already being served by this client
+    case .noModelRunning:
+        // Attempted to stop a server that isn't running
+    case .serverUnavailable:
+        // Could not connect to the server
+    case .timeout:
+        // Request timed out
+    case .transport(let error):
+        // Underlying network error
     }
 }
 ```

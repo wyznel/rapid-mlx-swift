@@ -7,7 +7,7 @@
 
 import Foundation
 
-public struct RapidMLXClient: Sendable {
+public actor RapidMLXClient {
     
     public let baseURL: URL
     public let apiKey: String?
@@ -15,9 +15,10 @@ public struct RapidMLXClient: Sendable {
     public let encoder: JSONEncoder
     public let decoder: JSONDecoder
     
+    var process: Process?
     
     public init(
-        baseURL: URL = URL(string: "http://localhost:8000/v1")!,
+        baseURL: URL = URL(string: "http://localhost:8000")!,
         apiKey: String? = "not-needed",
         session: URLSession = .shared,
         encoder: JSONEncoder = JSONEncoder(),
@@ -29,7 +30,7 @@ public struct RapidMLXClient: Sendable {
         self.encoder = encoder
         self.decoder = decoder
     }
-
+    
 //  MARK: - General Chat (No streaming)
     public func chat(
         _ messages: [ChatMessage],
@@ -45,7 +46,7 @@ public struct RapidMLXClient: Sendable {
     }
     
     public func chat(_ body: ChatCompletionRequest) async throws -> ChatCompletionResponse {
-        let url = baseURL.appending(path: "chat/completions")
+        let url = baseURL.appending(path: "/v1/chat/completions")
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -106,7 +107,7 @@ public struct RapidMLXClient: Sendable {
             parallelToolCalls: body.parallelToolCalls
         )
         
-        let url = baseURL.appending(path: "chat/completions")
+        let url = baseURL.appending(path: "/v1/chat/completions")
         let currentEncoder = encoder
         let currentDecoder = decoder
         let currentApiKey = apiKey
@@ -307,6 +308,129 @@ public struct RapidMLXClient: Sendable {
             parallelToolCalls: parallelToolCalls
         )
         return chatStreamEvents(request)
+    }
+    
+}
+
+
+extension RapidMLXClient {
+    
+    func runCommand(arguments: [String]) throws {
+        let home = FileManager.default.homeDirectoryForCurrentUser
+        let executable = home
+            .appendingPathComponent(".local")
+            .appendingPathComponent("bin")
+            .appendingPathComponent("rapid-mlx")
+        
+        let task = Process()
+        task.executableURL = executable
+        task.arguments = arguments
+        let out = Pipe()
+        let err = Pipe()
+        
+        task.standardOutput = out
+        task.standardError = err
+        
+        try task.run()
+    }
+    
+    
+}
+
+extension RapidMLXClient {
+    
+    public func serve(model: String) throws {
+        guard process?.isRunning != true else {
+            throw RapidMLXError.modelAlreadyServed
+        }
+        
+        let home = FileManager.default.homeDirectoryForCurrentUser
+        let executable = home
+            .appendingPathComponent(".local")
+            .appendingPathComponent("bin")
+            .appendingPathComponent("rapid-mlx")
+        
+        let task = Process()
+        task.executableURL = executable
+        task.arguments = ["serve", model]
+        
+        let out = Pipe()
+        let err = Pipe()
+        task.standardOutput = out
+        task.standardError = err
+        
+        try task.run()
+        process = task
+    }
+    
+    public func stopServe() throws {
+        guard let process, process.isRunning else { throw RapidMLXError.noModelRunning }
+        
+        process.terminate()
+        process.waitUntilExit()
+        self.process = nil
+    }
+    
+}
+
+
+extension RapidMLXClient {
+    
+    func fetch<T: Decodable>(_ endpoint: String, as type: T.Type = T.self) async throws -> T {
+        let url = baseURL.appendingPathComponent(endpoint.trimmingCharacters(in: CharacterSet(charactersIn: "/")))
+        
+        let (data, response) = try await session.data(from: url)
+        
+        do {
+            guard let httpResponse = response as? HTTPURLResponse else {
+                throw RapidMLXError.invalidResponse
+            }
+            
+            guard 200...299 ~= httpResponse.statusCode else {
+                throw RapidMLXError.httpError(statusCode: httpResponse.statusCode, body: "")
+            }
+        } catch let error as URLError {
+            switch error.code {
+            case .cannotConnectToHost, .cannotFindHost, .networkConnectionLost, .notConnectedToInternet:
+                throw RapidMLXError.serverUnavailable
+            case .timedOut:
+                throw RapidMLXError.timeout
+            default:
+                throw RapidMLXError.transport(error)
+            }
+        }
+        
+        return try decoder.decode(T.self, from: data)
+    }
+}
+
+
+extension RapidMLXClient {
+    
+    public struct HealthResponse: Decodable {
+        let status: String
+        let ready: Bool
+        let model_loaded: Bool
+        let model_name: String
+    }
+    
+    public func getHealth() async throws -> HealthResponse {
+        let health: HealthResponse = try await fetch("/healthz")
+        return health
+    }
+}
+
+extension RapidMLXClient {
+    
+    public struct IsModelReady: Decodable {
+        let ready: Bool
+        let model: String
+    }
+    
+    public func isModelReady() async throws -> IsModelReady {
+        let ready: IsModelReady = try await fetch("/health/ready")
+        
+        return ready
     }
     
 }

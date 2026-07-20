@@ -50,7 +50,7 @@ extension RapidMLXClient {
 
                         var assistantMessage: ChatMessage?
 
-                        for try await event in capturedSelf.chatStreamEvents(request) {
+                        for try await event in await capturedSelf.chatStreamEvents(request) {
                             switch event {
                             case .content(let token):
                                 continuation.yield(.content(token))
