@@ -130,11 +130,6 @@ let weatherTool = Tool<WeatherArgs, WeatherResult>(
     return WeatherResult(temperature: 18, condition: "partly cloudy")
 }
 
-let request = ChatCompletionRequest(
-    messages: [.user("What is the weather in London?")],
-    tools: try [weatherTool].toChatCompletionTools()
-)
-
 // Streaming with automatic tool execution
 for try await event in try client.chatWithTools(messages: [.user("What is the weather in London?")], tools: [weatherTool]) {
     switch event {
