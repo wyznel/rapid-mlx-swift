@@ -113,7 +113,7 @@ extension Tool: ExecutableTool {
 // MARK: - Request Conversion
 
 extension Array where Element == any ToolProtocol {
-    func toChatCompletionTools() throws -> [ChatCompletionTool] {
+    public func toChatCompletionTools() throws -> [ChatCompletionTool] {
         return try self.map { toolProtocol in
             // ToolProtocol's schema natively uses `any (Codable & Sendable)`, but AnyCodable encoding can be tricky.
             // Since we know schemaValue is JSONValue (or encodable as such), we can just encode it.

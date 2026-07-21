@@ -363,11 +363,15 @@ extension RapidMLXClient {
         process = task
     }
     
-    public func stopServe() throws {
+    public func stopServe() async throws {
         guard let process, process.isRunning else { throw RapidMLXError.noModelRunning }
         
-        process.terminate()
-        process.waitUntilExit()
+        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+            process.terminationHandler = { _ in
+                continuation.resume()
+            }
+            process.terminate()
+        }
         self.process = nil
     }
     
@@ -379,9 +383,12 @@ extension RapidMLXClient {
     func fetch<T: Decodable>(_ endpoint: String, as type: T.Type = T.self) async throws -> T {
         let url = baseURL.appendingPathComponent(endpoint.trimmingCharacters(in: CharacterSet(charactersIn: "/")))
         
-        let (data, response) = try await session.data(from: url)
+        let data: Data
+        let response: URLResponse
         
         do {
+            (data, response) = try await session.data(from: url)
+            
             guard let httpResponse = response as? HTTPURLResponse else {
                 throw RapidMLXError.invalidResponse
             }
