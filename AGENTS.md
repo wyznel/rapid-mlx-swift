@@ -42,10 +42,9 @@ The supported flows are:
 
 Streaming chat is also supported via `chatStream`, which returns an `AsyncThrowingStream<ChatCompletionChunk, Error>` over SSE chunks from the same endpoint with `stream: true`.
 
-Tool calling is supported at three abstraction levels:
-- **Low-level**: Raw `chatStream` chunks with manual `ChunkAccumulator` for delta reassembly.
-- **Mid-level**: `chatStreamEvents` which yields `ChatStreamEvent` values (`.content`, `.toolCallsReady`, `.finished`) with automatic accumulation.
-- **High-level**: `chatWithTools` which handles the full tool execution lifecycle (stream, execute, follow-up) automatically by executing the closures embedded in your `Tool` definitions, up to a `maxRounds` safety limit.
+Tool calling is supported via `chatWithTools`, which handles the full tool execution lifecycle (stream, execute, follow-up) automatically by executing the closures embedded in your `Tool` definitions, up to a `maxRounds` safety limit. Both streaming (`AsyncThrowingStream<ChatStreamEvent, Error>`) and non-streaming (`ChatCompletionResponse`) overloads are provided.
+
+Streaming chat is also supported via `chatStream`, which returns an `AsyncThrowingStream<ChatCompletionChunk, Error>` over SSE chunks. `chatStreamEvents` provides a higher-level stream of `ChatStreamEvent` values (`.content`, `.toolCallsReady`, `.finished`) with automatic delta accumulation.
 
 Keep the package focused on correctness and API clarity before adding richer features like embeddings or multimodal support, even though Rapid-MLX supports broader OpenAI-compatible capabilities.[cite:2][cite:24]
 

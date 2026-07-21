@@ -73,7 +73,7 @@ Add streaming chat support alongside ergonomic improvements.
 
 #### Goal
 
-Finish adding tool calling support, making it much easier while still allowing access to mid and lower level access.
+Finish adding tool calling support, with the API simplified to a single top-level `chatWithTools` entry point.
 
 #### Delivered
 
@@ -94,10 +94,9 @@ Finish adding tool calling support, making it much easier while still allowing a
 
 ###### Simplifying tool calling.
 
+- `chatWithTools` for high-level automatic tool execution (streaming and non-streaming).
+- `chatStreamEvents` for structured streaming with automatic delta accumulation.
 - `ChatStreamEvent` enum (`.content`, `.toolCallsReady`, `.finished`) for consuming streams without manual delta accumulation.
-- `chatStreamEvents` methods on `RapidMLXClient` that wrap raw chunk streams with internal `ChunkAccumulator`.
-- `chatWithTools` streaming method that handles the full tool execution lifecycle (stream, accumulate, execute, follow-up) with `maxRounds` safety limit.
-- `chatWithTools` non-streaming method for simpler use cases.
 - Generic `Tool<Input, Output>` type storing both schema and execution logic.
 - `ToolCall.decodedArguments()` generic helper for typed argument parsing.
 - `toolCallError` case added to `RapidMLXError`.

@@ -27,7 +27,7 @@ extension RapidMLXClient {
     ///   - tools: The tools to execute.
     ///   - maxRounds: Maximum number of tool-calling round-trips. Default is 10.
     /// - Returns: A stream of ``ChatStreamEvent`` values.
-    private func chatWithTools(
+    private nonisolated func chatWithTools(
         _ body: ChatCompletionRequest,
         tools: [any ToolProtocol],
         maxRounds: Int = 10
@@ -50,7 +50,7 @@ extension RapidMLXClient {
 
                         var assistantMessage: ChatMessage?
 
-                        for try await event in await capturedSelf.chatStreamEvents(request) {
+                        for try await event in capturedSelf.chatStreamEvents(request) {
                             switch event {
                             case .content(let token):
                                 continuation.yield(.content(token))
@@ -112,7 +112,7 @@ extension RapidMLXClient {
     }
 
     /// Convenience overload that builds a ``ChatCompletionRequest`` for you and automatically executes tools.
-    public func chatWithTools(
+    public nonisolated func chatWithTools(
         messages: [ChatMessage],
         model: String = "default",
         tools: [any ToolProtocol],

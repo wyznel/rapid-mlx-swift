@@ -12,16 +12,16 @@ import Foundation
 ///
 /// This simplifies handling streamed responses that include tool calls or text by automatically
 /// concatenating chunk content and tool call parameters.
-public struct ChunkAccumulator: Sendable {
-    public var role: ChatMessage.Role = .assistant
-    public var content: String = ""
+struct ChunkAccumulator: Sendable {
+    var role: ChatMessage.Role = .assistant
+    var content: String = ""
     
     private var toolCallBuilders: [Int: ToolCallBuilder] = [:]
     
-    public init() {}
+    init() {}
     
     /// Appends a streaming chunk to the accumulated state.
-    public mutating func append(_ chunk: ChatCompletionChunk) {
+    mutating func append(_ chunk: ChatCompletionChunk) {
         if let token = chunk.firstContentToken {
             content += token
         }
@@ -49,7 +49,7 @@ public struct ChunkAccumulator: Sendable {
     ///
     /// Use this to append the assistant's response to your conversation history
     /// before executing tool calls.
-    public var message: ChatMessage {
+    var message: ChatMessage {
         let tools: [ToolCall]?
         if toolCallBuilders.isEmpty {
             tools = nil

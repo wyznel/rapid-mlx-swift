@@ -83,7 +83,7 @@ public actor RapidMLXClient {
     
     // MARK: - Streaming chat
     
-    public func chatStream(
+    public nonisolated func chatStream(
         _ messages: [ChatMessage],
         model: String = "default"
     ) -> AsyncThrowingStream<ChatCompletionChunk, Error> {
@@ -95,7 +95,7 @@ public actor RapidMLXClient {
         return chatStream(requestBody)
     }
     
-    public func chatStream(
+    public nonisolated func chatStream(
         _ body: ChatCompletionRequest
     ) -> AsyncThrowingStream<ChatCompletionChunk, Error> {
         let streamBody = ChatCompletionRequest(
@@ -254,7 +254,7 @@ public actor RapidMLXClient {
     ///     }
     /// }
     /// ```
-    public func chatStreamEvents(
+    public nonisolated func chatStreamEvents(
         _ body: ChatCompletionRequest
     ) -> AsyncThrowingStream<ChatStreamEvent, Error> {
         let rawStream = chatStream(body)
@@ -293,7 +293,7 @@ public actor RapidMLXClient {
     }
     
     /// Convenience overload that builds a ``ChatCompletionRequest`` for you.
-    public func chatStreamEvents(
+    public nonisolated func chatStreamEvents(
         _ messages: [ChatMessage],
         model: String = "default",
         tools: [ChatCompletionTool]? = nil,

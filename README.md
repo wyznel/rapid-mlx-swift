@@ -99,8 +99,7 @@ print() // newline after stream ends
 
 ### Tool calling
 
-> [!NOTE]
-> Read [TOOL_CALLING_TUTORIAL.md](https://github.com/wyznel/rapid-mlx-swift/blob/main/TOOL_CALLING_TUTORIAL.md) for the full guide including mid-level and low-level approaches.
+> See [TOOL_CALLING_TUTORIAL.md](TOOL_CALLING_TUTORIAL.md) for the full guide.
 
 `chatWithTools` handles the entire tool-calling lifecycle. Define your tools with their execution closures, and the library manages the request/response loop automatically:
 
@@ -196,7 +195,6 @@ print(response.firstText ?? "")
 | `FunctionCall` | The `name` and JSON-encoded `arguments` from a tool call |
 | `ToolChoice` | Controls tool selection: `.auto`, `.none`, `.required`, `.function(name:)` |
 | `JSONValue` | Type-safe recursive enum for arbitrary JSON (used in tool parameter schemas) |
-| `ChunkAccumulator` | Reassembles streaming tool call deltas into complete `ToolCall` objects |
 
 ### Convenience helpers
 
