@@ -15,6 +15,9 @@ public actor RapidMLXClient {
     public let encoder: JSONEncoder
     public let decoder: JSONDecoder
     
+    
+    private var loaded_model: String? = ""
+    
     var process: Process?
     
     public init(
@@ -337,9 +340,11 @@ extension RapidMLXClient {
     
 }
 
+// MARK: - Model Management
+
 extension RapidMLXClient {
     
-    public func serve(model: String) throws {
+    public func manual_serve(model: String) throws {
         guard process?.isRunning != true else {
             throw RapidMLXError.modelAlreadyServed
         }
@@ -361,6 +366,7 @@ extension RapidMLXClient {
         
         try task.run()
         process = task
+        self.loaded_model = model
     }
     
     public func stopServe() async throws {
@@ -373,6 +379,29 @@ extension RapidMLXClient {
             process.terminate()
         }
         self.process = nil
+        self.loaded_model = ""
+    }
+    
+    public func serve(model: String) async throws {
+        
+        // If the requested model is already served, then do nothing.
+        if self.process != nil && self.loaded_model == model { return }
+        else if self.process != nil { try await stopServe() }
+            
+            
+        //Wait for model to be stopped and `process` to be set to nil.
+        try await waitForFreeProcess()
+            
+        try manual_serve(model: model)
+    }
+    
+    func waitForFreeProcess() async throws {
+        for _ in 0..<10 {
+            if process == nil {
+                return
+            }
+            try await Task.sleep(for: .seconds(0.25))
+        }
     }
     
 }
@@ -445,7 +474,6 @@ extension RapidMLXClient {
             self.model = model
         }
     }
-    
     
     public func getSimpleStatus() async throws -> IsModelReady {
         let ready: IsModelReady = try await fetch("/health/ready")

@@ -29,11 +29,14 @@ extension RapidMLXClient {
     /// - Returns: A stream of ``ChatStreamEvent`` values.
     private nonisolated func chatWithTools(
         _ body: ChatCompletionRequest,
+        model: String,
         tools: [any ToolProtocol],
         maxRounds: Int = 10
     ) -> AsyncThrowingStream<ChatStreamEvent, Swift.Error> {
         let capturedSelf = self
-
+        
+        
+        
         return AsyncThrowingStream { continuation in
             let task = Task {
                 do {
@@ -129,7 +132,7 @@ extension RapidMLXClient {
             toolChoice: toolChoice,
             parallelToolCalls: parallelToolCalls
         )
-        return chatWithTools(request, tools: tools, maxRounds: maxRounds)
+        return chatWithTools(request, model: model, tools: tools, maxRounds: maxRounds)
     }
 
     // MARK: - Non-streaming tool execution loop
