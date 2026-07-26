@@ -415,10 +415,17 @@ extension RapidMLXClient {
 extension RapidMLXClient {
     
     public struct HealthResponse: Decodable {
-        let status: String
-        let ready: Bool
-        let model_loaded: Bool
-        let model_name: String
+        public let status: String
+        public let ready: Bool
+        public let model_loaded: Bool
+        public let model_name: String
+        
+        public init(status: String, ready: Bool, model_loaded: Bool, model_name: String){
+            self.status = status
+            self.ready = ready
+            self.model_loaded = model_loaded
+            self.model_name = model_name
+        }
     }
     
     public func getHealth() async throws -> HealthResponse {
@@ -430,13 +437,19 @@ extension RapidMLXClient {
 extension RapidMLXClient {
     
     public struct IsModelReady: Decodable {
-        let ready: Bool
-        let model: String
+        public let ready: Bool
+        public let model: String
+        
+        public init(ready: Bool, model: String) {
+            self.ready = ready
+            self.model = model
+        }
     }
+    
     
     public func isModelReady() async throws -> IsModelReady {
         let ready: IsModelReady = try await fetch("/health/ready")
-        
+
         return ready
     }
     
