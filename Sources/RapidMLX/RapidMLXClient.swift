@@ -447,7 +447,7 @@ extension RapidMLXClient {
     }
     
     
-    public func isModelReady() async throws -> IsModelReady {
+    public func getSimpleStatus() async throws -> IsModelReady {
         let ready: IsModelReady = try await fetch("/health/ready")
 
         return ready
@@ -457,7 +457,7 @@ extension RapidMLXClient {
     public func waitForModelReady(pollInterval: TimeInterval = 1.0, maxRetries: Int = 30) async throws {
         for _ in 0..<maxRetries {
             do {
-                let status = try await isModelReady()
+                let status = try await getSimpleStatus()
                 if status.ready {
                     return
                 }
