@@ -382,7 +382,7 @@ extension RapidMLXClient {
         self.loaded_model = ""
     }
     
-    public func serve(model: String) async throws {
+    public func serve(model: String, pollInterval: TimeInterval = 0.1, maxRetries: Int = 500) async throws {
         
         // If the requested model is already served, then do nothing.
         if self.process != nil && self.loaded_model == model { return }
@@ -393,6 +393,8 @@ extension RapidMLXClient {
         try await waitForFreeProcess()
             
         try manual_serve(model: model)
+        //Checks every 100ms for 50 seconds. 
+        try await waitForModelReady(pollInterval: pollInterval, maxRetries: maxRetries)
     }
     
     func waitForFreeProcess() async throws {
