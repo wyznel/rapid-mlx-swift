@@ -34,7 +34,7 @@ public actor RapidMLXClient {
         self.decoder = decoder
     }
     
-//  MARK: - General Chat (No streaming)
+    //  MARK: - General Chat (No streaming)
     public func chat(
         _ messages: [ChatMessage],
         model: String = "default"
@@ -55,7 +55,11 @@ public actor RapidMLXClient {
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         
         if let apiKey, !apiKey.isEmpty {
-            request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
+            request
+                .setValue(
+                    "Bearer \(apiKey)",
+                    forHTTPHeaderField: "Authorization"
+                )
         }
         
         request.httpBody = try encoder.encode(body)
@@ -74,7 +78,10 @@ public actor RapidMLXClient {
             )
         }
         
-        let decoded = try decoder.decode(ChatCompletionResponse.self, from: data)
+        let decoded = try decoder.decode(
+            ChatCompletionResponse.self,
+            from: data
+        )
         
         guard !decoded.choices.isEmpty else {
             throw RapidMLXError.emptyChoices
@@ -121,15 +128,25 @@ public actor RapidMLXClient {
                 do {
                     var request = URLRequest(url: url)
                     request.httpMethod = "POST"
-                    request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+                    request
+                        .setValue(
+                            "application/json",
+                            forHTTPHeaderField: "Content-Type"
+                        )
                     
                     if let apiKey = currentApiKey, !apiKey.isEmpty {
-                        request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
+                        request
+                            .setValue(
+                                "Bearer \(apiKey)",
+                                forHTTPHeaderField: "Authorization"
+                            )
                     }
                     
                     request.httpBody = try currentEncoder.encode(streamBody)
                     
-                    let (bytes, response) = try await currentSession.bytes(for: request)
+                    let (bytes, response) = try await currentSession.bytes(
+                        for: request
+                    )
                     
                     guard let httpResponse = response as? HTTPURLResponse else {
                         throw RapidMLXError.invalidResponse
@@ -148,7 +165,10 @@ public actor RapidMLXClient {
                     }
                     
                     for try await line in bytes.lines {
-                        if let event = try Self.parseSSELine(line, decoder: currentDecoder) {
+                        if let event = try Self.parseSSELine(
+                            line,
+                            decoder: currentDecoder
+                        ) {
                             switch event {
                             case .chunk(let chunk):
                                 continuation.yield(chunk)
@@ -213,7 +233,11 @@ public actor RapidMLXClient {
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         
         if let apiKey, !apiKey.isEmpty {
-            request.setValue("Bearer \(apiKey)", forHTTPHeaderField: "Authorization")
+            request
+                .setValue(
+                    "Bearer \(apiKey)",
+                    forHTTPHeaderField: "Authorization"
+                )
         }
         
         let (data, response) = try await session.data(for: request)
@@ -224,7 +248,11 @@ public actor RapidMLXClient {
         
         guard (200...299).contains(httpResponse.statusCode) else{
             let responseBody = String(data: data, encoding: .utf8)
-            throw RapidMLXError.httpError(statusCode: httpResponse.statusCode, body: responseBody)
+            throw RapidMLXError
+                .httpError(
+                    statusCode: httpResponse.statusCode,
+                    body: responseBody
+                )
         }
         
         let decoded = try decoder.decode(ListModelResponse.self, from: data)
@@ -318,23 +346,41 @@ public actor RapidMLXClient {
 
 extension RapidMLXClient {
     
-    func runCommand(arguments: [String]) throws {
+    @discardableResult
+    func runCommand(arguments: [String]) throws -> String {
         let home = FileManager.default.homeDirectoryForCurrentUser
         let executable = home
             .appendingPathComponent(".local")
             .appendingPathComponent("bin")
             .appendingPathComponent("rapid-mlx")
-        
+
         let task = Process()
         task.executableURL = executable
         task.arguments = arguments
+
         let out = Pipe()
         let err = Pipe()
-        
         task.standardOutput = out
         task.standardError = err
-        
+
         try task.run()
+        task.waitUntilExit()
+
+        let outputData = out.fileHandleForReading.readDataToEndOfFile()
+        let errorData = err.fileHandleForReading.readDataToEndOfFile()
+
+        if task.terminationStatus != 0 {
+            let errorString = String(decoding: errorData, as: UTF8.self)
+            throw NSError(
+                domain: "rapid-mlx",
+                code: Int(
+                    task.terminationStatus
+                ),
+                userInfo: [NSLocalizedDescriptionKey: errorString]
+            )
+        }
+
+        return String(decoding: outputData, as: UTF8.self)
     }
     
     
@@ -370,9 +416,14 @@ extension RapidMLXClient {
     }
     
     public func stopServe() async throws {
-        guard let process, process.isRunning else { throw RapidMLXError.noModelRunning }
+        guard let process, process.isRunning else {
+            throw RapidMLXError.noModelRunning
+        }
         
-        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+        await withCheckedContinuation { (
+            continuation: CheckedContinuation<Void,
+            Never>
+        ) in
             process.terminationHandler = { _ in
                 continuation.resume()
             }
@@ -394,16 +445,78 @@ extension RapidMLXClient {
             
         try manual_serve(model: model)
         //Checks every 100ms for 50 seconds. 
-        try await waitForModelReady(pollInterval: pollInterval, maxRetries: maxRetries)
+        try await waitForModelReady(
+            pollInterval: pollInterval,
+            maxRetries: maxRetries
+        )
     }
     
-    func waitForFreeProcess() async throws {
+    public func waitForFreeProcess() async throws {
         for _ in 0..<10 {
             if process == nil {
                 return
             }
             try await Task.sleep(for: .seconds(0.25))
         }
+    }
+}
+
+
+// MARK: - Get Downloaded Models
+
+extension RapidMLXClient {
+    
+    public struct RapidModel {
+        public let alias: String
+        public let hfRepo: String
+        public let size: String
+        public let modified: String
+    }
+    
+    public func getModels() throws -> [RapidModel] {
+        let raw = try runCommand(arguments: ["ls"])
+        let lines = raw.components(separatedBy: "\n")
+
+        guard let headerIndex = lines.firstIndex(where: { $0.contains("Alias") && $0.contains("HF repo") }) else {
+            return []
+        }
+
+        let dataLines = lines[(headerIndex + 1)...]
+            .drop(
+                while: { isSeparator($0) || $0.trimmingCharacters(
+                    in: .whitespaces
+                ).isEmpty
+                })
+            .prefix(
+                while: { !isSeparator($0) && !$0.trimmingCharacters(
+                    in: .whitespaces
+                ).isEmpty
+                })
+
+        return dataLines.compactMap { line -> RapidModel? in
+            let columns = line
+                .split(separator: " ", omittingEmptySubsequences: true)
+                .map(String.init)
+
+            guard columns.count >= 6 else { return nil }
+
+            let alias = columns[0]
+            let hfRepo = columns[1]
+            let size = "\(columns[columns.count - 4]) \(columns[columns.count - 3])"
+            let modified = "\(columns[columns.count - 2]) \(columns[columns.count - 1])"
+
+            return RapidModel(
+                alias: alias,
+                hfRepo: hfRepo,
+                size: size,
+                modified: modified
+            )
+        }
+    }
+
+    private func isSeparator(_ line: String) -> Bool {
+        let trimmed = line.trimmingCharacters(in: .whitespaces)
+        return !trimmed.isEmpty && trimmed.allSatisfy { $0 == "─" }
     }
     
 }
@@ -412,7 +525,9 @@ extension RapidMLXClient {
 extension RapidMLXClient {
     
     func fetch<T: Decodable>(_ endpoint: String, as type: T.Type = T.self) async throws -> T {
-        let url = baseURL.appendingPathComponent(endpoint.trimmingCharacters(in: CharacterSet(charactersIn: "/")))
+        let url = baseURL.appendingPathComponent(
+            endpoint.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+        )
         
         let data: Data
         let response: URLResponse
@@ -425,7 +540,8 @@ extension RapidMLXClient {
             }
             
             guard 200...299 ~= httpResponse.statusCode else {
-                throw RapidMLXError.httpError(statusCode: httpResponse.statusCode, body: "")
+                throw RapidMLXError
+                    .httpError(statusCode: httpResponse.statusCode, body: "")
             }
         } catch let error as URLError {
             switch error.code {
@@ -451,7 +567,12 @@ extension RapidMLXClient {
         public let model_loaded: Bool
         public let model_name: String
         
-        public init(status: String, ready: Bool, model_loaded: Bool, model_name: String){
+        public init(
+            status: String,
+            ready: Bool,
+            model_loaded: Bool,
+            model_name: String
+        ){
             self.status = status
             self.ready = ready
             self.model_loaded = model_loaded
@@ -494,7 +615,8 @@ extension RapidMLXClient {
             } catch {
                 // Ignore errors and keep polling (e.g., connection refused while server starts)
             }
-            try await Task.sleep(nanoseconds: UInt64(pollInterval * 1_000_000_000))
+            try await Task
+                .sleep(nanoseconds: UInt64(pollInterval * 1_000_000_000))
         }
         throw RapidMLXError.timeout
     }
