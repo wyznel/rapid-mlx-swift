@@ -20,4 +20,9 @@ public enum RapidMLXError: Error, Sendable {
     case timeout
     case transport(Error)
     case invalidCommand(String)
+    
+    
+    // MARK: - Invalid Model, thrown when .pull() is called
+    case invalidModel
+    case pullModelError(String)
 }

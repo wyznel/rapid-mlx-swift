@@ -460,7 +460,85 @@ extension RapidMLXClient {
         }
     }
 }
+// MARK: Pull Model
+extension RapidMLXClient {
+    
+    /// Download a model.
+    ///
+    /// Use this method to pull a model using RapidMLX Terminal Commands.
+    /// As the RapidMLX API does not expose a *pull* endpoint, we must use terminal commands.
+    /// Therefore we can't **easily** get a live progress of the download.
+    ///
+    /// ```swift
+    /// let client = RapidMLXClient()
+    /// let alias = "bonsai-1.7b-2bit"
+    /// let begun = try? await client.pull(alias: alias)
+    /// ```
+    /// - Parameters:
+    ///     - alias: a valid RapidMLX defined alias.
+    ///     - hfRepo: a valid huggingface repo name
+    ///
+    /// - Throws: ``RapidMLXError``
+    ///     - RapidMLXError.invalidModel
+    ///     - RapidMLXError.pullModelError
+    public func pull(alias: String?, hfRepo: String?) async throws{
+        // Whack it on a 'background' thread
+        
+        var args: [String] = ["pull"]
+        
+        if let alias {
+            args.append(alias)
+        }
+        else if let hfRepo {
+            args.append(hfRepo)
+        }else{
+            throw RapidMLXError.invalidModel
+        }
+        do {
+            try runCommand(arguments: args)
+        }catch{
+            throw RapidMLXError.pullModelError(error.localizedDescription)
+        }
+    }
+    
+}
 
+// MARK: Delete Model
+
+extension RapidMLXClient {
+    
+    /// Delete a model
+    /// ```swift
+    /// let client = RapidMLXClient()
+    /// let alias = "gemma-4-e2b-4bit"
+    /// if client.delete(alias: alias) {
+    ///     //Deleted model.
+    /// }
+    /// ```
+    /// - Parameters:
+    ///     - alias: a valid RapidMLX defined alias.
+    ///     - hfRepo: a valid huggingface repo name
+    ///
+    /// Use this method to delete a model from the local huggingface cache.
+    /// The local RapidMLX local server doesn't expose an API for deleting a model, therefore must
+    /// use RapidMLX terminal commands.
+    ///
+    public func delete(alias: String?, hfRepo: String?) throws -> Bool {
+        var args: [String] = ["rm", "-y"]
+        
+        if let alias {
+            args.append(alias)
+            try runCommand(arguments: args)
+            return true
+        } else if let hfRepo {
+            args.append(hfRepo)
+            try runCommand(arguments: ["rm"])
+            return true
+        }else {
+            return false
+        }
+    }
+}
 
 // MARK: - Get Downloaded Models
 
@@ -521,7 +599,7 @@ extension RapidMLXClient {
     
 }
 
-
+// MARK: - Easy calling to endpoint
 extension RapidMLXClient {
     
     func fetch<T: Decodable>(_ endpoint: String, as type: T.Type = T.self) async throws -> T {
@@ -558,7 +636,7 @@ extension RapidMLXClient {
     }
 }
 
-
+// MARK: - Health Endpoint
 extension RapidMLXClient {
     
     public struct HealthResponse: Decodable {
@@ -585,7 +663,7 @@ extension RapidMLXClient {
         return health
     }
 }
-
+//MARK: - Health/Ready endpoint
 extension RapidMLXClient {
     
     public struct IsModelReady: Decodable {
