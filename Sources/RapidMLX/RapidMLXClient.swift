@@ -544,7 +544,7 @@ extension RapidMLXClient {
 
 extension RapidMLXClient {
     
-    public struct RapidModel {
+    public struct RapidModel: Sendable {
         public let alias: String
         public let hfRepo: String
         public let size: String
