@@ -540,6 +540,8 @@ extension RapidMLXClient {
             return false
         }
         
+        print("Target model for deletion: " + target)
+        
         try runCommand(arguments: ["rm", "-y", target])
         return true
     }
