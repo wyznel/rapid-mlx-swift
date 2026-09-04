@@ -526,7 +526,7 @@ extension RapidMLXClient {
     public func delete(alias: String?, hfRepo: String?) throws -> Bool {
         var args: [String] = ["rm", "-y"]
         
-        if let alias {
+        if let alias, alias != "(unmapped)" {
             args.append(alias)
             try runCommand(arguments: args)
             return true
