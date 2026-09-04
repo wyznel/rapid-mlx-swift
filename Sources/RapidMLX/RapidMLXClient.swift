@@ -556,6 +556,10 @@ extension RapidMLXClient {
         public let hfRepo: String
         public let size: String
         public let modified: String
+        
+        public var id: String {
+            "\(alias)|\(hfRepo)"
+        }
     }
     
     public func getModels() throws -> [RapidModel] {
