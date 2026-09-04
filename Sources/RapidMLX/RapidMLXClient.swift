@@ -530,7 +530,7 @@ extension RapidMLXClient {
     ///
     /// When the alias is missing or is the "(unmapped)" placeholder, the model
     /// is deleted by its HF repo instead.
-    public func delete(alias: String?, hfRepo: String?) throws -> Bool {
+    public func delete(alias: String? = "(unmapped)", hfRepo: String? = "(unmapped)") throws -> Bool {
         let target: String
         if let alias, alias != Self.unmappedAlias {
             target = alias
