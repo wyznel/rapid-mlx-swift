@@ -507,6 +507,10 @@ extension RapidMLXClient {
 
 extension RapidMLXClient {
     
+    /// Placeholder `rapid-mlx ls` prints in the alias column for models that
+    /// were pulled by HF repo and have no registered alias.
+    private static let unmappedAlias = "(unmapped)"
+    
     /// Delete a model
     /// ```swift
     /// let client = RapidMLXClient()
@@ -516,27 +520,28 @@ extension RapidMLXClient {
     /// }
     /// ```
     /// - Parameters:
-    ///     - alias: a valid RapidMLX defined alias.
+    ///     - alias: a valid RapidMLX defined alias, or the "(unmapped)"
+    ///       placeholder returned by ``getModels()`` for alias-less models.
     ///     - hfRepo: a valid huggingface repo name
     ///
     /// Use this method to delete a model from the local huggingface cache.
     /// The local RapidMLX local server doesn't expose an API for deleting a model, therefore must
     /// use RapidMLX terminal commands.
     ///
+    /// When the alias is missing or is the "(unmapped)" placeholder, the model
+    /// is deleted by its HF repo instead.
     public func delete(alias: String?, hfRepo: String?) throws -> Bool {
-        var args: [String] = ["rm", "-y"]
-        
-        if let alias, alias != "(unmapped)" {
-            args.append(alias)
-            try runCommand(arguments: args)
-            return true
+        let target: String
+        if let alias, alias != Self.unmappedAlias {
+            target = alias
         } else if let hfRepo {
-            args.append(hfRepo)
-            try runCommand(arguments: ["rm"])
-            return true
-        }else {
+            target = hfRepo
+        } else {
             return false
         }
+        
+        try runCommand(arguments: ["rm", "-y", target])
+        return true
     }
 }
 
