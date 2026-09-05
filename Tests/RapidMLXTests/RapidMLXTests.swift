@@ -43,7 +43,7 @@ struct ModelsTests {
 //        #expect(!text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
 //    }
     
-    @Test("Explicit chat request works")
+    @Test("Explicit chat request works", .enabled(if: RapidMLXIntegrationTests.isEnabled))
     func explicitRequestWorks() async throws {
         let client = RapidMLXClient()
         let request = ChatCompletionRequest(
@@ -55,7 +55,7 @@ struct ModelsTests {
         #expect(!text.isEmpty)
     }
     
-    @Test("List models works")
+    @Test("List models works", .enabled(if: RapidMLXIntegrationTests.isEnabled))
     func listModelsWorks() async throws {
         let client = RapidMLXClient()
         let modelResponse: ListModelResponse = try await client.listModels(showOnlyAliases: true)
@@ -121,7 +121,7 @@ struct StreamingModelTests {
 }
 
 struct StreamingIntegrationTests {
-    @Test("Streaming chat returns tokens from live server")
+    @Test("Streaming chat returns tokens from live server", .enabled(if: RapidMLXIntegrationTests.isEnabled))
     func streamingIntegration() async throws {
         let client = RapidMLXClient()
         var tokens: [String] = []

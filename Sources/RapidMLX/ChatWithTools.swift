@@ -41,6 +41,16 @@ extension RapidMLXClient {
             let task = Task {
                 do {
                     var messages = body.messages
+                    let executableTools: [String: any ExecutableTool] = Dictionary(
+                        tools.compactMap { tool in
+                            guard let executableTool = tool as? any ExecutableTool,
+                                  let name = executableTool.name else {
+                                return nil
+                            }
+                            return (name, executableTool)
+                        },
+                        uniquingKeysWith: { first, _ in first }
+                    )
 
                     for _ in 0..<maxRounds {
                         let request = ChatCompletionRequest(
@@ -83,7 +93,7 @@ extension RapidMLXClient {
                         // Execute each tool call and append results.
                         for toolCall in toolCalls {
                             do {
-                                guard let executableTool = tools.compactMap({ $0 as? ExecutableTool }).first(where: { $0.name == toolCall.function.name }) else {
+                                guard let executableTool = executableTools[toolCall.function.name] else {
                                     throw RapidMLXError.toolCallError("Unknown tool called by model: \(toolCall.function.name)")
                                 }
                                 let result = try await executableTool.execute(arguments: toolCall.function.arguments)
@@ -91,7 +101,10 @@ extension RapidMLXClient {
                                     .toolResult(callId: toolCall.id, content: result)
                                 )
                             } catch {
-                                let errorJSON = "{\"error\": \"\(String(describing: error).replacingOccurrences(of: "\"", with: "\\\""))\"}"
+                                if error is CancellationError {
+                                    throw error
+                                }
+                                let errorJSON = Self.toolErrorResult(error)
                                 messages.append(
                                     .toolResult(callId: toolCall.id, content: errorJSON)
                                 )
@@ -123,6 +136,9 @@ extension RapidMLXClient {
         parallelToolCalls: Bool? = nil,
         maxRounds: Int = 10
     ) throws -> AsyncThrowingStream<ChatStreamEvent, Swift.Error> {
+        guard maxRounds > 0 else {
+            throw RapidMLXError.invalidMaximumRounds(maxRounds)
+        }
         let requestTools = try tools.toChatCompletionTools()
         
         let request = ChatCompletionRequest(
@@ -153,6 +169,16 @@ extension RapidMLXClient {
         maxRounds: Int = 10
     ) async throws -> ChatCompletionResponse {
         var messages = body.messages
+        let executableTools: [String: any ExecutableTool] = Dictionary(
+            tools.compactMap { tool in
+                guard let executableTool = tool as? any ExecutableTool,
+                      let name = executableTool.name else {
+                    return nil
+                }
+                return (name, executableTool)
+            },
+            uniquingKeysWith: { first, _ in first }
+        )
 
         for _ in 0..<maxRounds {
             let request = ChatCompletionRequest(
@@ -177,7 +203,7 @@ extension RapidMLXClient {
             // Execute each tool call and append results.
             for toolCall in toolCalls {
                 do {
-                    guard let executableTool = tools.compactMap({ $0 as? ExecutableTool }).first(where: { $0.name == toolCall.function.name }) else {
+                    guard let executableTool = executableTools[toolCall.function.name] else {
                         throw RapidMLXError.toolCallError("Unknown tool called by model: \(toolCall.function.name)")
                     }
                     let result = try await executableTool.execute(arguments: toolCall.function.arguments)
@@ -185,7 +211,10 @@ extension RapidMLXClient {
                         .toolResult(callId: toolCall.id, content: result)
                     )
                 } catch {
-                    let errorJSON = "{\"error\": \"\(String(describing: error).replacingOccurrences(of: "\"", with: "\\\""))\"}"
+                    if error is CancellationError {
+                        throw error
+                    }
+                    let errorJSON = Self.toolErrorResult(error)
                     messages.append(
                         .toolResult(callId: toolCall.id, content: errorJSON)
                     )
@@ -210,6 +239,9 @@ extension RapidMLXClient {
         parallelToolCalls: Bool? = nil,
         maxRounds: Int = 10
     ) async throws -> ChatCompletionResponse {
+        guard maxRounds > 0 else {
+            throw RapidMLXError.invalidMaximumRounds(maxRounds)
+        }
         let requestTools = try tools.toChatCompletionTools()
         
         let request = ChatCompletionRequest(
@@ -221,5 +253,14 @@ extension RapidMLXClient {
         )
         
         return try await chatWithTools(request, tools: tools, maxRounds: maxRounds)
+    }
+
+    private nonisolated static func toolErrorResult(_ error: Error) -> String {
+        let payload = ["error": String(describing: error)]
+        guard let data = try? JSONEncoder().encode(payload),
+              let string = String(data: data, encoding: .utf8) else {
+            return #"{"error":"Tool execution failed"}"#
+        }
+        return string
     }
 }

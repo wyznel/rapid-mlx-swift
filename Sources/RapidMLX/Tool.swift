@@ -84,7 +84,7 @@ public struct Tool<Input: Codable, Output: Codable>: ToolProtocol {
 
 // MARK: - Auto-Execution Type Erasure
 
-protocol ExecutableTool {
+protocol ExecutableTool: Sendable {
     var name: String? { get }
     func execute(arguments: String) async throws -> String
 }

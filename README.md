@@ -43,13 +43,12 @@ print(response.firstText ?? "No response")
 
 ```swift
 let client = RapidMLXClient(
-    baseURL: URL(string: "http://192.168.1.42:8000")!,
+    baseURL: URL(string: "http://127.0.0.1:8000/v1")!,
     apiKey: "my-api-key"
 )
 ```
 
 ### Server management
-
 You can manage the local Rapid-MLX server process directly from Swift:
 
 ```swift
@@ -57,7 +56,7 @@ You can manage the local Rapid-MLX server process directly from Swift:
 try await client.serve(model: "mlx-community/Qwen2.5-Coder-7B-Instruct-4bit")
 
 // Check if model is ready
-let status = try await client.isModelReady()
+let status = try await client.getSimpleStatus()
 print(status.ready, status.model)
 
 // Stop the server process
@@ -150,7 +149,7 @@ print(response.firstText ?? "")
 
 | Property | Type | Default |
 |----------|------|---------|
-| `baseURL` | `URL` | `http://localhost:8000` |
+| `baseURL` | `URL` | `http://localhost:8000/v1` |
 | `apiKey` | `String?` | `"not-needed"` |
 | `session` | `URLSession` | `.shared` |
 | `encoder` | `JSONEncoder` | `JSONEncoder()` |
@@ -171,7 +170,7 @@ print(response.firstText ?? "")
 | `serve(model:)` | Start a local Rapid-MLX server process serving a specific model |
 | `stopServe()` | Stop the local Rapid-MLX server process |
 | `getHealth()` | Get the health status of the server |
-| `isModelReady()` | Check if a model is ready and get its name |
+| `getSimpleStatus()` | Check if a model is ready and get its name |
 
 ### Models
 
@@ -235,6 +234,8 @@ do {
         // SSE parsing failure
     case .toolCallError(let message):
         // Tool call argument decoding failure
+    case .invalidMaximumRounds(let value):
+        // `chatWithTools` was given zero or a negative round limit
     case .modelAlreadyServed:
         // A model is already being served by this client
     case .noModelRunning:
@@ -248,6 +249,17 @@ do {
     }
 }
 ```
+
+## Testing
+
+`swift test` runs the self-contained unit suite. Tests that require a running
+local Rapid-MLX server are opt-in so they do not make CI or offline development
+flaky. Start Rapid-MLX first, then run:
+
+```bash
+RAPID_MLX_INTEGRATION_TESTS=1 swift test
+```
+
 ## License
 
 See [LICENSE](LICENSE) for details.

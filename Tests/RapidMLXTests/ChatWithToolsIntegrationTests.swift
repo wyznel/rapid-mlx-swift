@@ -35,7 +35,7 @@ struct ChatWithToolsIntegrationTests {
 
     // MARK: - chatStreamEvents Tests
 
-    @Test("chatStreamEvents with tools returns .toolCallsReady and .finished events")
+    @Test("chatStreamEvents with tools returns .toolCallsReady and .finished events", .enabled(if: RapidMLXIntegrationTests.isEnabled))
     func streamEventsWithToolCalls() async throws {
         let client = RapidMLXClient()
         let requestTools = try [Self.weatherTool].toChatCompletionTools()
@@ -69,7 +69,7 @@ struct ChatWithToolsIntegrationTests {
         #expect(toolCalls[0].function.name == "get_weather")
     }
 
-    @Test("chatStreamEvents without tools yields .content and .finished only")
+    @Test("chatStreamEvents without tools yields .content and .finished only", .enabled(if: RapidMLXIntegrationTests.isEnabled))
     func streamEventsWithoutTools() async throws {
         let client = RapidMLXClient()
         let request = ChatCompletionRequest(
@@ -106,7 +106,7 @@ struct ChatWithToolsIntegrationTests {
 
     // MARK: - chatWithTools Streaming Tests
 
-    @Test("chatWithTools streaming completes a full tool round-trip")
+    @Test("chatWithTools streaming completes a full tool round-trip", .enabled(if: RapidMLXIntegrationTests.isEnabled))
     func streamingToolRoundTrip() async throws {
         let client = RapidMLXClient()
         var contentTokens: [String] = []
@@ -145,7 +145,7 @@ struct ChatWithToolsIntegrationTests {
 
     // MARK: - chatWithTools Non-Streaming Tests
 
-    @Test("chatWithTools non-streaming completes a full tool round-trip")
+    @Test("chatWithTools non-streaming completes a full tool round-trip", .enabled(if: RapidMLXIntegrationTests.isEnabled))
     func nonStreamingToolRoundTrip() async throws {
         let client = RapidMLXClient()
         let response: ChatCompletionResponse = try await client.chatWithTools(
@@ -161,7 +161,7 @@ struct ChatWithToolsIntegrationTests {
 
     // MARK: - chatWithTools Convenience Overload Tests
 
-    @Test("chatWithTools convenience overload completes streaming round-trip")
+    @Test("chatWithTools convenience overload completes streaming round-trip", .enabled(if: RapidMLXIntegrationTests.isEnabled))
     func convenienceStreamingRoundTrip() async throws {
         let client = RapidMLXClient()
 

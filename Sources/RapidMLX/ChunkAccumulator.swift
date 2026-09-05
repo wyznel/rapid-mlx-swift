@@ -14,7 +14,7 @@ import Foundation
 /// concatenating chunk content and tool call parameters.
 struct ChunkAccumulator: Sendable {
     var role: ChatMessage.Role = .assistant
-    var content: String = ""
+    private var contentFragments: [String] = []
     
     private var toolCallBuilders: [Int: ToolCallBuilder] = [:]
     
@@ -22,8 +22,13 @@ struct ChunkAccumulator: Sendable {
     
     /// Appends a streaming chunk to the accumulated state.
     mutating func append(_ chunk: ChatCompletionChunk) {
-        if let token = chunk.firstContentToken {
-            content += token
+        if let delta = chunk.choices.first?.delta {
+            if let role = delta.role {
+                self.role = role
+            }
+            if let content = delta.content {
+                contentFragments.append(content)
+            }
         }
         
         if let deltas = chunk.firstToolCallDeltas {
@@ -34,10 +39,10 @@ struct ChunkAccumulator: Sendable {
                     builder.id = id
                 }
                 if let name = delta.function?.name {
-                    builder.name += name
+                    builder.nameFragments.append(name)
                 }
                 if let args = delta.function?.arguments {
-                    builder.arguments += args
+                    builder.argumentFragments.append(args)
                 }
                 
                 toolCallBuilders[delta.index] = builder
@@ -50,16 +55,21 @@ struct ChunkAccumulator: Sendable {
     /// Use this to append the assistant's response to your conversation history
     /// before executing tool calls.
     var message: ChatMessage {
+        let content = contentFragments.joined()
         let tools: [ToolCall]?
         if toolCallBuilders.isEmpty {
             tools = nil
         } else {
             let sortedBuilders = toolCallBuilders.sorted(by: { $0.key < $1.key }).map { $0.value }
             tools = sortedBuilders.compactMap { builder in
-                guard let id = builder.id, !builder.name.isEmpty else { return nil }
+                let name = builder.nameFragments.joined()
+                guard let id = builder.id, !name.isEmpty else { return nil }
                 return ToolCall(
                     id: id,
-                    function: FunctionCall(name: builder.name, arguments: builder.arguments)
+                    function: FunctionCall(
+                        name: name,
+                        arguments: builder.argumentFragments.joined()
+                    )
                 )
             }
         }
@@ -73,7 +83,7 @@ struct ChunkAccumulator: Sendable {
     
     private struct ToolCallBuilder: Sendable {
         var id: String?
-        var name: String = ""
-        var arguments: String = ""
+        var nameFragments: [String] = []
+        var argumentFragments: [String] = []
     }
 }

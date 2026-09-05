@@ -22,7 +22,7 @@ struct ToolCallIntegrationTests {
         ])
     ))
 
-    @Test("Non-streaming tool call returns finish_reason tool_calls")
+    @Test("Non-streaming tool call returns finish_reason tool_calls", .enabled(if: RapidMLXIntegrationTests.isEnabled))
     func toolCallIntegration() async throws {
         let client = RapidMLXClient()
         let request = ChatCompletionRequest(
@@ -42,7 +42,7 @@ struct ToolCallIntegrationTests {
         #expect(choice.finishReason == "tool_calls")
     }
 
-    @Test("Full tool call round-trip: request -> tool call -> tool result -> final text")
+    @Test("Full tool call round-trip: request -> tool call -> tool result -> final text", .enabled(if: RapidMLXIntegrationTests.isEnabled))
     func toolCallRoundTrip() async throws {
         let client = RapidMLXClient()
 
@@ -80,7 +80,7 @@ struct ToolCallIntegrationTests {
         #expect(!finalText.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
     }
 
-    @Test("Streaming tool call returns deltas and finishes with tool_calls reason")
+    @Test("Streaming tool call returns deltas and finishes with tool_calls reason", .enabled(if: RapidMLXIntegrationTests.isEnabled))
     func toolCallStreamingIntegration() async throws {
         let client = RapidMLXClient()
         let request = ChatCompletionRequest(

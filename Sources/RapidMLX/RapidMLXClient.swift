@@ -21,7 +21,7 @@ public actor RapidMLXClient {
     var process: Process?
     
     public init(
-        baseURL: URL = URL(string: "http://localhost:8000")!,
+        baseURL: URL = URL(string: "http://localhost:8000/v1")!,
         apiKey: String? = "not-needed",
         session: URLSession = .shared,
         encoder: JSONEncoder = JSONEncoder(),
@@ -49,7 +49,7 @@ public actor RapidMLXClient {
     }
     
     public func chat(_ body: ChatCompletionRequest) async throws -> ChatCompletionResponse {
-        let url = baseURL.appending(path: "/v1/chat/completions")
+        let url = Self.apiURL(baseURL: baseURL, path: "chat/completions")
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
@@ -64,7 +64,13 @@ public actor RapidMLXClient {
         
         request.httpBody = try encoder.encode(body)
         
-        let (data, response) = try await session.data(for: request)
+        let data: Data
+        let response: URLResponse
+        do {
+            (data, response) = try await session.data(for: request)
+        } catch {
+            throw Self.transportError(for: error)
+        }
         
         guard let httpResponse = response as? HTTPURLResponse else {
             throw RapidMLXError.invalidResponse
@@ -117,7 +123,7 @@ public actor RapidMLXClient {
             parallelToolCalls: body.parallelToolCalls
         )
         
-        let url = baseURL.appending(path: "/v1/chat/completions")
+        let url = Self.apiURL(baseURL: baseURL, path: "chat/completions")
         let currentEncoder = encoder
         let currentDecoder = decoder
         let currentApiKey = apiKey
@@ -133,6 +139,7 @@ public actor RapidMLXClient {
                             "application/json",
                             forHTTPHeaderField: "Content-Type"
                         )
+                    request.setValue("text/event-stream", forHTTPHeaderField: "Accept")
                     
                     if let apiKey = currentApiKey, !apiKey.isEmpty {
                         request
@@ -144,9 +151,13 @@ public actor RapidMLXClient {
                     
                     request.httpBody = try currentEncoder.encode(streamBody)
                     
-                    let (bytes, response) = try await currentSession.bytes(
-                        for: request
-                    )
+                    let bytes: URLSession.AsyncBytes
+                    let response: URLResponse
+                    do {
+                        (bytes, response) = try await currentSession.bytes(for: request)
+                    } catch {
+                        throw Self.transportError(for: error)
+                    }
                     
                     guard let httpResponse = response as? HTTPURLResponse else {
                         throw RapidMLXError.invalidResponse
@@ -164,7 +175,7 @@ public actor RapidMLXClient {
                         )
                     }
                     
-                    for try await line in bytes.lines {
+                    streamingLoop: for try await line in bytes.lines {
                         if let event = try Self.parseSSELine(
                             line,
                             decoder: currentDecoder
@@ -173,7 +184,7 @@ public actor RapidMLXClient {
                             case .chunk(let chunk):
                                 continuation.yield(chunk)
                             case .done:
-                                break
+                                break streamingLoop
                             }
                         }
                     }
@@ -192,12 +203,12 @@ public actor RapidMLXClient {
     
     // MARK: - SSE parsing
     
-    private enum SSEEvent {
+    enum SSEEvent {
         case chunk(ChatCompletionChunk)
         case done
     }
     
-    private static func parseSSELine(
+    static func parseSSELine(
         _ line: String,
         decoder: JSONDecoder
     ) throws -> SSEEvent? {
@@ -205,11 +216,14 @@ public actor RapidMLXClient {
             return nil
         }
         
-        guard line.hasPrefix("data: ") else {
+        guard line.hasPrefix("data:") else {
             return nil
         }
         
-        let payload = String(line.dropFirst(6))
+        var payload = String(line.dropFirst(5))
+        if payload.first == " " {
+            payload.removeFirst()
+        }
         
         if payload == "[DONE]" {
             return .done
@@ -226,7 +240,7 @@ public actor RapidMLXClient {
     // MARK: - List currently cached models
     
     public func listModels(showOnlyAliases: Bool = false) async throws -> ListModelResponse {
-        let url = baseURL.appending(path: "models")
+        let url = Self.apiURL(baseURL: baseURL, path: "models")
         var request = URLRequest(url: url)
         
         request.httpMethod = "GET"
@@ -294,6 +308,7 @@ public actor RapidMLXClient {
             let task = Task {
                 do {
                     var accumulator = ChunkAccumulator()
+                    var emittedToolCallsReady = false
                     
                     for try await chunk in rawStream {
                         accumulator.append(chunk)
@@ -306,11 +321,18 @@ public actor RapidMLXClient {
                             let message = accumulator.message
                             if let toolCalls = message.toolCalls, !toolCalls.isEmpty {
                                 continuation.yield(.toolCallsReady(toolCalls))
+                                emittedToolCallsReady = true
                             }
                         }
                     }
                     
-                    continuation.yield(.finished(accumulator.message))
+                    let message = accumulator.message
+                    if !emittedToolCallsReady,
+                       let toolCalls = message.toolCalls,
+                       !toolCalls.isEmpty {
+                        continuation.yield(.toolCallsReady(toolCalls))
+                    }
+                    continuation.yield(.finished(message))
                     continuation.finish()
                 } catch {
                     continuation.finish(throwing: error)
@@ -341,6 +363,45 @@ public actor RapidMLXClient {
         return chatStreamEvents(request)
     }
     
+}
+
+extension RapidMLXClient {
+    /// Builds an API URL while accepting both server-root and `/v1` base URLs.
+    /// This keeps existing callers that pass `http://host:8000` working while
+    /// making the documented `/v1` default unambiguous.
+    static func apiURL(baseURL: URL, path: String) -> URL {
+        let normalizedPath = path.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+        let apiBase: URL
+        if baseURL.pathComponents.last == "v1" {
+            apiBase = baseURL
+        } else {
+            apiBase = baseURL.appendingPathComponent("v1", isDirectory: true)
+        }
+        return apiBase.appendingPathComponent(normalizedPath)
+    }
+
+    static func serverURL(baseURL: URL, path: String) -> URL {
+        let normalizedPath = path.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+        let serverBase = baseURL.pathComponents.last == "v1"
+            ? baseURL.deletingLastPathComponent()
+            : baseURL
+        return serverBase.appendingPathComponent(normalizedPath)
+    }
+
+    private static func transportError(for error: Error) -> Error {
+        guard let urlError = error as? URLError else {
+            return error
+        }
+
+        switch urlError.code {
+        case .cannotConnectToHost, .cannotFindHost, .networkConnectionLost, .notConnectedToInternet:
+            return RapidMLXError.serverUnavailable
+        case .timedOut:
+            return RapidMLXError.timeout
+        default:
+            return RapidMLXError.transport(urlError)
+        }
+    }
 }
 
 
@@ -614,9 +675,7 @@ extension RapidMLXClient {
 extension RapidMLXClient {
     
     func fetch<T: Decodable>(_ endpoint: String, as type: T.Type = T.self) async throws -> T {
-        let url = baseURL.appendingPathComponent(
-            endpoint.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
-        )
+        let url = Self.serverURL(baseURL: baseURL, path: endpoint)
         
         let data: Data
         let response: URLResponse

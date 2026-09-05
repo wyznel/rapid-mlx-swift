@@ -14,6 +14,7 @@ public enum RapidMLXError: Error, Sendable {
     case emptyChoices
     case streamingError(String)
     case toolCallError(String)
+    case invalidMaximumRounds(Int)
     case modelAlreadyServed
     case noModelRunning
     case serverUnavailable
