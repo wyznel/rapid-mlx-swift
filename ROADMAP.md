@@ -66,7 +66,7 @@ Add streaming chat support alongside ergonomic improvements.
 - Streaming extensions: `firstContentToken`, `isFinished` on `ChatCompletionChunk`.
 - Static factory methods on `ChatMessage` (`.system()`, `.user()`, `.assistant()`).
 - Better error reporting for non-2xx API responses.
-- LICENSE file (MIT).
+- LICENSE file.
 - ROADMAP and AGENTS documentation.
 
 ### v0.3.0
